@@ -1899,6 +1899,83 @@
 }
 
 /* ========================================
+   Cross-Reference (Note ↔ Issue)
+   ======================================== */
+
+.cross-ref-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-border);
+}
+
+.cross-ref-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.cross-ref-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cross-ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cross-ref-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg-subtle);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  font-size: var(--text-sm);
+  text-align: left;
+  width: 100%;
+}
+
+.cross-ref-item:hover {
+  border-color: var(--c-accent);
+  background: var(--c-accent-bg);
+}
+
+.cross-ref-number {
+  font-family: var(--font-mono);
+  color: var(--c-text-muted);
+  flex-shrink: 0;
+}
+
+.cross-ref-item-title {
+  flex: 1;
+  color: var(--c-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cross-ref-status {
+  font-size: var(--text-xs);
+  color: var(--c-text-muted);
+  flex-shrink: 0;
+}
+
+.cross-ref-empty {
+  font-size: var(--text-sm);
+  color: var(--c-text-muted);
+  margin: 0;
+}
+
+/* ========================================
    Print Layout
    ======================================== */
 

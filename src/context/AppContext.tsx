@@ -1,0 +1,152 @@
+import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { useNotes } from "../hooks/useNotes";
+import { useTasks } from "../hooks/useTasks";
+import { useTheme } from "../hooks/useTheme";
+import { useToast } from "../hooks/useToast";
+import type { Note } from "../types/Note";
+import type { Task } from "../types/Task";
+
+// Derive return types from hooks
+type NotesState = ReturnType<typeof useNotes>;
+type TasksState = ReturnType<typeof useTasks>;
+type ThemeState = ReturnType<typeof useTheme>;
+type ToastState = ReturnType<typeof useToast>;
+
+interface CrossRefHelpers {
+  /** Link a note to a task */
+  linkNoteToTask: (noteId: string, taskId: string) => void;
+  /** Unlink a note from a task */
+  unlinkNoteFromTask: (taskId: string) => void;
+  /** Create a new issue from an existing note */
+  createIssueFromNote: (note: Note) => Task;
+  /** Create a new note from an existing issue */
+  createNoteFromIssue: (task: Task) => void;
+  /** Get the task linked to a note */
+  getLinkedTasks: (noteId: string) => Task[];
+  /** Get the note linked to a task */
+  getLinkedNote: (taskId: string) => Note | null;
+}
+
+interface AppContextValue {
+  notes: NotesState;
+  tasks: TasksState;
+  theme: ThemeState;
+  toast: ToastState;
+  crossRef: CrossRefHelpers;
+}
+
+const AppContext = createContext<AppContextValue | null>(null);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const notes = useNotes();
+  const tasks = useTasks();
+  const theme = useTheme();
+  const toast = useToast();
+
+  const linkNoteToTask = useCallback(
+    (noteId: string, taskId: string) => {
+      tasks.updateTask(taskId, { linkedNoteId: noteId });
+    },
+    [tasks]
+  );
+
+  const unlinkNoteFromTask = useCallback(
+    (taskId: string) => {
+      tasks.updateTask(taskId, { linkedNoteId: null });
+    },
+    [tasks]
+  );
+
+  const createIssueFromNote = useCallback(
+    (note: Note) => {
+      const task = tasks.createTask(
+        note.title || "無題のノートから作成",
+        note.content,
+        "medium"
+      );
+      tasks.updateTask(task.id, { linkedNoteId: note.id });
+      toast.addToast(`Issue #${task.number} を作成し、ノートとリンクしました`);
+      return task;
+    },
+    [tasks, toast]
+  );
+
+  const createNoteFromIssue = useCallback(
+    (task: Task) => {
+      const content = [
+        task.body,
+        "",
+        `---`,
+        `> このノートは Issue #${task.number} から作成されました`,
+      ].join("\n");
+
+      notes.addNoteFromTemplate(
+        task.title,
+        content,
+        ["Issue"]
+      );
+      // Link the newly created note (most recently added = first in state)
+      // We need to use a timeout to wait for state update
+      setTimeout(() => {
+        const allNotes = notes.getAllNotes();
+        const latestNote = allNotes.find((n) => n.title === task.title && !n.trashed);
+        if (latestNote) {
+          tasks.updateTask(task.id, { linkedNoteId: latestNote.id });
+        }
+      }, 100);
+      toast.addToast(`ノートを作成し、Issue #${task.number} とリンクしました`);
+    },
+    [notes, tasks, toast]
+  );
+
+  const getLinkedTasks = useCallback(
+    (noteId: string): Task[] => {
+      // tasks.tasks is the filtered list, need raw from tasksByStatus
+      const allTasks = [
+        ...tasks.tasksByStatus.open,
+        ...tasks.tasksByStatus.in_progress,
+        ...tasks.tasksByStatus.done,
+        ...tasks.tasksByStatus.closed,
+      ];
+      return allTasks.filter((t) => t.linkedNoteId === noteId);
+    },
+    [tasks.tasksByStatus]
+  );
+
+  const getLinkedNote = useCallback(
+    (taskId: string): Note | null => {
+      const allTasks = [
+        ...tasks.tasksByStatus.open,
+        ...tasks.tasksByStatus.in_progress,
+        ...tasks.tasksByStatus.done,
+        ...tasks.tasksByStatus.closed,
+      ];
+      const task = allTasks.find((t) => t.id === taskId);
+      if (!task?.linkedNoteId) return null;
+      const allNotes = notes.getAllNotes();
+      return allNotes.find((n) => n.id === task.linkedNoteId) ?? null;
+    },
+    [tasks.tasksByStatus, notes]
+  );
+
+  const crossRef: CrossRefHelpers = {
+    linkNoteToTask,
+    unlinkNoteFromTask,
+    createIssueFromNote,
+    createNoteFromIssue,
+    getLinkedTasks,
+    getLinkedNote,
+  };
+
+  return (
+    <AppContext.Provider value={{ notes, tasks, theme, toast, crossRef }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useAppContext() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useAppContext must be used within AppProvider");
+  return ctx;
+}

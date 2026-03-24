@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Task, TaskLabel, TaskMilestone, TaskComment, TaskStatus, TaskPriority } from "../types/Task";
+import type { Note } from "../types/Note";
 import { DEFAULT_COLUMNS, STATUS_LABELS, PRIORITY_COLORS } from "../types/Task";
 
 type BoardView = "list" | "board";
@@ -21,11 +22,13 @@ interface TaskBoardProps {
   onCreateTask: (title: string, body?: string, priority?: TaskPriority) => void;
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onRemoveTask: (id: string) => void;
-
   onAddComment: (taskId: string, body: string) => void;
   onAddLabel: (name: string, color: string) => void;
   onAddMilestone: (title: string, dueDate: number | null) => void;
   onClose: () => void;
+  onNavigateToLinkedNote: (taskId: string) => void;
+  onCreateNoteFromIssue: (task: Task) => void;
+  getLinkedNote: (taskId: string) => Note | null;
 }
 
 function TaskLabelBadge({ label }: { label: TaskLabel }) {
@@ -74,6 +77,9 @@ export function TaskBoard({
   onAddLabel,
   onAddMilestone,
   onClose,
+  onNavigateToLinkedNote,
+  onCreateNoteFromIssue,
+  getLinkedNote,
 }: TaskBoardProps) {
   const [view, setView] = useState<BoardView>("list");
   const [newTitle, setNewTitle] = useState("");
@@ -231,6 +237,34 @@ export function TaskBoard({
                 onChange={(e) => onUpdateTask(selectedTask.id, { assignee: e.target.value })}
                 placeholder="担当者名"
               />
+            </div>
+
+            {/* Linked Note */}
+            <div className="task-sidebar-section">
+              <span className="task-sidebar-label">リンクされたノート</span>
+              {(() => {
+                const linkedNote = getLinkedNote(selectedTask.id);
+                if (linkedNote) {
+                  return (
+                    <button
+                      className="cross-ref-item"
+                      onClick={() => onNavigateToLinkedNote(selectedTask.id)}
+                      title="リンクされたノートを開く"
+                    >
+                      <span className="cross-ref-item-title">{linkedNote.title || "無題"}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    className="btn-toolbar"
+                    onClick={() => onCreateNoteFromIssue(selectedTask)}
+                    style={{ width: "100%" }}
+                  >
+                    + ノートを作成
+                  </button>
+                );
+              })()}
             </div>
 
             {/* Meta */}

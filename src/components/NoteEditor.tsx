@@ -3,6 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import type { Note } from "../types/Note";
+import type { Task } from "../types/Task";
+import { STATUS_LABELS } from "../types/Task";
 import { TagInput } from "./TagInput";
 import { ImageGallery } from "./ImageGallery";
 import { MarkdownToolbar } from "./MarkdownToolbar";
@@ -19,6 +21,9 @@ interface NoteEditorProps {
   onAddImage: (noteId: string, file: File) => void;
   onRemoveImage: (noteId: string, imageId: string) => void;
   onExport: (note: Note) => void;
+  linkedTasks?: Task[];
+  onCreateIssue?: (noteId: string) => void;
+  onNavigateToTask?: (noteId: string) => void;
 }
 
 function countStats(text: string) {
@@ -38,6 +43,9 @@ export function NoteEditor({
   onAddImage,
   onRemoveImage,
   onExport,
+  linkedTasks = [],
+  onCreateIssue,
+  onNavigateToTask,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -302,6 +310,43 @@ export function NoteEditor({
           onRemove={(imageId) => onRemoveImage(note.id, imageId)}
         />
       )}
+
+      {/* Cross-reference: Linked Issues */}
+      <div className="cross-ref-section">
+        <div className="cross-ref-header">
+          <span className="cross-ref-title">リンクされたIssue</span>
+          {onCreateIssue && (
+            <button
+              className="btn-toolbar"
+              onClick={() => onCreateIssue(note.id)}
+              title="このノートからIssueを作成"
+            >
+              + Issue作成
+            </button>
+          )}
+        </div>
+        {linkedTasks.length > 0 ? (
+          <div className="cross-ref-list">
+            {linkedTasks.map((task) => (
+              <button
+                key={task.id}
+                className="cross-ref-item"
+                onClick={() => onNavigateToTask?.(note.id)}
+                title={`Issue #${task.number} を開く`}
+              >
+                <span className={`task-status-icon ${task.status}`}>
+                  {task.status === "open" ? "○" : task.status === "in_progress" ? "◐" : task.status === "done" ? "●" : "⊘"}
+                </span>
+                <span className="cross-ref-number">#{task.number}</span>
+                <span className="cross-ref-item-title">{task.title}</span>
+                <span className="cross-ref-status">{STATUS_LABELS[task.status]}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="cross-ref-empty">リンクされたIssueはありません</p>
+        )}
+      </div>
 
       {/* Status Bar */}
       <footer className="editor-statusbar" aria-label="エディタステータス">

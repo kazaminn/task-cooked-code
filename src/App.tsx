@@ -1,9 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
-import { useNotes } from "./hooks/useNotes";
-import { useTheme } from "./hooks/useTheme";
+import { useAppContext } from "./context/AppContext";
 import { useKeyboard } from "./hooks/useKeyboard";
-import { useToast } from "./hooks/useToast";
-import { useTasks } from "./hooks/useTasks";
 import { NoteList } from "./components/NoteList";
 import { NoteEditor } from "./components/NoteEditor";
 import { ThemePanel } from "./components/ThemePanel";
@@ -20,42 +17,8 @@ import "./App.css";
 type AppView = "notes" | "tasks";
 
 function App() {
-  const {
-    notes,
-    allTags,
-    filterTag,
-    setFilterTag,
-    searchQuery,
-    setSearchQuery,
-    sortMode,
-    setSortMode,
-    viewMode,
-    setViewMode,
-    trashCount,
-    selectedNote,
-    selectedId,
-    setSelectedId,
-    addNote,
-    duplicateNote,
-    updateNote,
-    togglePin,
-    moveToTrash,
-    restoreFromTrash,
-    permanentDelete,
-    emptyTrash,
-    addImage,
-    removeImage,
-    addNoteFromTemplate,
-    importNotes,
-    getAllNotes,
-    batchMoveToTrash,
-    batchAddTag,
-    loading,
-  } = useNotes();
+  const { notes: n, tasks: t, theme, toast, crossRef } = useAppContext();
 
-  const taskStore = useTasks();
-  const { mode, setMode, colorHue, setColorHue } = useTheme();
-  const { toasts, addToast, removeToast } = useToast();
   const [themeOpen, setThemeOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -68,43 +31,43 @@ function App() {
 
   const handleMoveToTrash = useCallback(
     (id: string) => {
-      const note = notes.find((n) => n.id === id);
-      moveToTrash(id);
+      const note = n.notes.find((x) => x.id === id);
+      n.moveToTrash(id);
       if (note) {
-        addToast(`「${note.title || "無題"}」をゴミ箱に移動しました`, {
+        toast.addToast(`「${note.title || "無題"}」をゴミ箱に移動しました`, {
           label: "元に戻す",
-          onClick: () => restoreFromTrash(id),
+          onClick: () => n.restoreFromTrash(id),
         });
       }
     },
-    [notes, moveToTrash, restoreFromTrash, addToast]
+    [n, toast]
   );
 
   const handleDuplicate = useCallback(
     (id: string) => {
-      duplicateNote(id);
-      addToast("ノートを複製しました");
+      n.duplicateNote(id);
+      toast.addToast("ノートを複製しました");
     },
-    [duplicateNote, addToast]
+    [n, toast]
   );
 
   const handleEmptyTrash = useCallback(() => {
-    emptyTrash();
-    addToast("ゴミ箱を空にしました");
-  }, [emptyTrash, addToast]);
+    n.emptyTrash();
+    toast.addToast("ゴミ箱を空にしました");
+  }, [n, toast]);
 
   const handleTemplate = useCallback(
     (template: NoteTemplate) => {
-      addNoteFromTemplate(template.title, template.content, template.tags);
-      addToast(`「${template.name}」テンプレートから作成しました`);
+      n.addNoteFromTemplate(template.title, template.content, template.tags);
+      toast.addToast(`「${template.name}」テンプレートから作成しました`);
     },
-    [addNoteFromTemplate, addToast]
+    [n, toast]
   );
 
   const handleExportJSON = useCallback(() => {
-    exportAllAsJSON(getAllNotes());
-    addToast("JSONバックアップをダウンロードしました");
-  }, [getAllNotes, addToast]);
+    exportAllAsJSON(n.getAllNotes());
+    toast.addToast("JSONバックアップをダウンロードしました");
+  }, [n, toast]);
 
   const handleImportJSON = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,14 +75,14 @@ function App() {
       if (!file) return;
       try {
         const imported = await importFromJSON(file);
-        importNotes(imported);
-        addToast(`${imported.length}件のノートをインポートしました`);
+        n.importNotes(imported);
+        toast.addToast(`${imported.length}件のノートをインポートしました`);
       } catch {
-        addToast("インポートに失敗しました。ファイル形式を確認してください。");
+        toast.addToast("インポートに失敗しました。ファイル形式を確認してください。");
       }
       e.target.value = "";
     },
-    [importNotes, addToast]
+    [n, toast]
   );
 
   const handleImportMarkdown = useCallback(
@@ -130,41 +93,70 @@ function App() {
       for (const file of Array.from(files)) {
         try {
           const note = await importFromMarkdown(file);
-          importNotes([note]);
+          n.importNotes([note]);
           count++;
-        } catch {
-          // skip invalid files
-        }
+        } catch { /* skip */ }
       }
-      if (count > 0) addToast(`${count}件のMarkdownをインポートしました`);
+      if (count > 0) toast.addToast(`${count}件のMarkdownをインポートしました`);
       e.target.value = "";
     },
-    [importNotes, addToast]
+    [n, toast]
   );
 
   const handleBatchMoveToTrash = useCallback(
     (ids: string[]) => {
-      batchMoveToTrash(ids);
-      addToast(`${ids.length}件のノートをゴミ箱に移動しました`);
+      n.batchMoveToTrash(ids);
+      toast.addToast(`${ids.length}件のノートをゴミ箱に移動しました`);
     },
-    [batchMoveToTrash, addToast]
+    [n, toast]
   );
 
   const handleBatchAddTag = useCallback(
     (ids: string[], tag: string) => {
-      batchAddTag(ids, tag);
-      addToast(`${ids.length}件に「${tag}」タグを追加しました`);
+      n.batchAddTag(ids, tag);
+      toast.addToast(`${ids.length}件に「${tag}」タグを追加しました`);
     },
-    [batchAddTag, addToast]
+    [n, toast]
+  );
+
+  // Cross-reference handlers
+  const handleCreateIssueFromNote = useCallback(
+    (noteId: string) => {
+      const note = n.getAllNotes().find((x) => x.id === noteId);
+      if (note) crossRef.createIssueFromNote(note);
+    },
+    [n, crossRef]
+  );
+
+  const handleNavigateToLinkedNote = useCallback(
+    (taskId: string) => {
+      const note = crossRef.getLinkedNote(taskId);
+      if (note) {
+        setAppView("notes");
+        n.setSelectedId(note.id);
+      }
+    },
+    [crossRef, n]
+  );
+
+  const handleNavigateToLinkedTask = useCallback(
+    (noteId: string) => {
+      const tasks = crossRef.getLinkedTasks(noteId);
+      if (tasks.length > 0) {
+        setAppView("tasks");
+        t.setSelectedTaskId(tasks[0].id);
+      }
+    },
+    [crossRef, t]
   );
 
   const keyHandlers = useMemo(
     () => ({
-      onNewNote: addNote,
+      onNewNote: n.addNote,
       onSearch: () => searchInputRef.current?.focus(),
       onTogglePreview: () => setPreview((p) => !p),
     }),
-    [addNote]
+    [n.addNote]
   );
 
   useKeyboard(keyHandlers);
@@ -172,7 +164,13 @@ function App() {
   const handleTogglePreview = useCallback(() => setPreview((p) => !p), []);
   const handleToggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
 
-  if (loading) {
+  // Compute linked tasks for selected note
+  const linkedTasksForSelectedNote = useMemo(() => {
+    if (!n.selectedNote) return [];
+    return crossRef.getLinkedTasks(n.selectedNote.id);
+  }, [n.selectedNote, crossRef]);
+
+  if (n.loading) {
     return (
       <div className="app loading-state" role="status" aria-label="読み込み中">
         <div className="spinner" />
@@ -183,87 +181,72 @@ function App() {
 
   return (
     <div className="app">
-      {/* App-level navigation tabs */}
       <nav className="app-nav" role="navigation" aria-label="メインナビゲーション">
-        <button
-          className={`app-nav-tab ${appView === "notes" ? "active" : ""}`}
-          onClick={() => setAppView("notes")}
-        >
+        <button className={`app-nav-tab ${appView === "notes" ? "active" : ""}`} onClick={() => setAppView("notes")}>
           ノート
         </button>
-        <button
-          className={`app-nav-tab ${appView === "tasks" ? "active" : ""}`}
-          onClick={() => setAppView("tasks")}
-        >
+        <button className={`app-nav-tab ${appView === "tasks" ? "active" : ""}`} onClick={() => setAppView("tasks")}>
           Issues
         </button>
         <div className="app-nav-spacer" />
-        <button className="app-nav-btn" onClick={() => setTemplateOpen(true)} title="テンプレートから作成">
-          テンプレート
-        </button>
-        <button className="app-nav-btn" onClick={() => setStatsOpen(true)} title="統計ダッシュボード">
-          統計
-        </button>
-        <button className="app-nav-btn" onClick={handleExportJSON} title="JSONエクスポート">
-          エクスポート
-        </button>
-        <button className="app-nav-btn" onClick={() => importFileRef.current?.click()} title="JSONインポート">
-          インポート
-        </button>
-        <button className="app-nav-btn" onClick={() => mdImportRef.current?.click()} title="Markdownインポート">
-          .md取込
-        </button>
+        <button className="app-nav-btn" onClick={() => setTemplateOpen(true)} title="テンプレートから作成">テンプレート</button>
+        <button className="app-nav-btn" onClick={() => setStatsOpen(true)} title="統計ダッシュボード">統計</button>
+        <button className="app-nav-btn" onClick={handleExportJSON} title="JSONエクスポート">エクスポート</button>
+        <button className="app-nav-btn" onClick={() => importFileRef.current?.click()} title="JSONインポート">インポート</button>
+        <button className="app-nav-btn" onClick={() => mdImportRef.current?.click()} title="Markdownインポート">.md取込</button>
         <input ref={importFileRef} type="file" accept=".json" hidden onChange={handleImportJSON} />
         <input ref={mdImportRef} type="file" accept=".md,.markdown" multiple hidden onChange={handleImportMarkdown} />
       </nav>
 
       {appView === "tasks" ? (
         <TaskBoard
-          tasks={taskStore.tasks}
-          tasksByStatus={taskStore.tasksByStatus}
-          labels={taskStore.labels}
-          milestones={taskStore.milestones}
-          selectedTask={taskStore.selectedTask}
-          comments={taskStore.comments}
-          filterLabel={taskStore.filterLabel}
-          filterStatus={taskStore.filterStatus}
-          searchQuery={taskStore.searchQuery}
-          onFilterLabel={taskStore.setFilterLabel}
-          onFilterStatus={taskStore.setFilterStatus}
-          onSearchChange={taskStore.setSearchQuery}
-          onSelectTask={taskStore.setSelectedTaskId}
-          onCreateTask={taskStore.createTask}
-          onUpdateTask={taskStore.updateTask}
-          onRemoveTask={taskStore.removeTask}
-
-          onAddComment={taskStore.addComment}
-          onAddLabel={taskStore.addLabel}
-          onAddMilestone={taskStore.addMilestone}
+          tasks={t.tasks}
+          tasksByStatus={t.tasksByStatus}
+          labels={t.labels}
+          milestones={t.milestones}
+          selectedTask={t.selectedTask}
+          comments={t.comments}
+          filterLabel={t.filterLabel}
+          filterStatus={t.filterStatus}
+          searchQuery={t.searchQuery}
+          onFilterLabel={t.setFilterLabel}
+          onFilterStatus={t.setFilterStatus}
+          onSearchChange={t.setSearchQuery}
+          onSelectTask={t.setSelectedTaskId}
+          onCreateTask={t.createTask}
+          onUpdateTask={t.updateTask}
+          onRemoveTask={t.removeTask}
+          onAddComment={t.addComment}
+          onAddLabel={t.addLabel}
+          onAddMilestone={t.addMilestone}
           onClose={() => setAppView("notes")}
+          onNavigateToLinkedNote={handleNavigateToLinkedNote}
+          onCreateNoteFromIssue={crossRef.createNoteFromIssue}
+          getLinkedNote={crossRef.getLinkedNote}
         />
       ) : (
         <div className="notes-layout">
           <NoteList
-            notes={notes}
-            selectedId={selectedId}
-            allTags={allTags}
-            filterTag={filterTag}
-            searchQuery={searchQuery}
-            sortMode={sortMode}
-            viewMode={viewMode}
-            trashCount={trashCount}
+            notes={n.notes}
+            selectedId={n.selectedId}
+            allTags={n.allTags}
+            filterTag={n.filterTag}
+            searchQuery={n.searchQuery}
+            sortMode={n.sortMode}
+            viewMode={n.viewMode}
+            trashCount={n.trashCount}
             sidebarCollapsed={sidebarCollapsed}
-            onFilterTag={setFilterTag}
-            onSearchChange={setSearchQuery}
-            onSortChange={setSortMode}
-            onViewChange={setViewMode}
-            onSelect={setSelectedId}
-            onAdd={addNote}
-            onTogglePin={togglePin}
+            onFilterTag={n.setFilterTag}
+            onSearchChange={n.setSearchQuery}
+            onSortChange={n.setSortMode}
+            onViewChange={n.setViewMode}
+            onSelect={n.setSelectedId}
+            onAdd={n.addNote}
+            onTogglePin={n.togglePin}
             onDuplicate={handleDuplicate}
             onMoveToTrash={handleMoveToTrash}
-            onRestore={restoreFromTrash}
-            onPermanentDelete={permanentDelete}
+            onRestore={n.restoreFromTrash}
+            onPermanentDelete={n.permanentDelete}
             onEmptyTrash={handleEmptyTrash}
             onOpenTheme={() => setThemeOpen(true)}
             onToggleSidebar={handleToggleSidebar}
@@ -271,16 +254,19 @@ function App() {
             onBatchAddTag={handleBatchAddTag}
             searchInputRef={searchInputRef}
           />
-          {selectedNote ? (
+          {n.selectedNote ? (
             <NoteEditor
-              note={selectedNote}
-              allTags={allTags}
+              note={n.selectedNote}
+              allTags={n.allTags}
               preview={preview}
               onTogglePreview={handleTogglePreview}
-              onUpdate={updateNote}
-              onAddImage={addImage}
-              onRemoveImage={removeImage}
+              onUpdate={n.updateNote}
+              onAddImage={n.addImage}
+              onRemoveImage={n.removeImage}
               onExport={exportAsMarkdown}
+              linkedTasks={linkedTasksForSelectedNote}
+              onCreateIssue={handleCreateIssueFromNote}
+              onNavigateToTask={handleNavigateToLinkedTask}
             />
           ) : (
             <main className="editor empty-state" role="main">
@@ -299,10 +285,10 @@ function App() {
         </div>
       )}
 
-      <ThemePanel open={themeOpen} mode={mode} colorHue={colorHue} onModeChange={setMode} onColorChange={setColorHue} onClose={() => setThemeOpen(false)} />
+      <ThemePanel open={themeOpen} mode={theme.mode} colorHue={theme.colorHue} onModeChange={theme.setMode} onColorChange={theme.setColorHue} onClose={() => setThemeOpen(false)} />
       <TemplatePanel open={templateOpen} onSelect={handleTemplate} onClose={() => setTemplateOpen(false)} />
-      <StatsPanel open={statsOpen} notes={getAllNotes()} onClose={() => setStatsOpen(false)} />
-      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      <StatsPanel open={statsOpen} notes={n.getAllNotes()} onClose={() => setStatsOpen(false)} />
+      <ToastContainer toasts={toast.toasts} onDismiss={toast.removeToast} />
     </div>
   );
 }
