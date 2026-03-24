@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import type { Note } from "../types/Note";
 import { TagInput } from "./TagInput";
 import { ImageGallery } from "./ImageGallery";
 import { MarkdownToolbar } from "./MarkdownToolbar";
+import { FindReplace } from "./FindReplace";
 
 type SaveStatus = "saved" | "saving" | "idle";
 
@@ -23,7 +25,8 @@ function countStats(text: string) {
   const chars = text.length;
   const words = text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
   const lines = text === "" ? 0 : text.split("\n").length;
-  return { chars, words, lines };
+  const readingTime = Math.max(1, Math.ceil(words / 200));
+  return { chars, words, lines, readingTime };
 }
 
 export function NoteEditor({
@@ -40,6 +43,7 @@ export function NoteEditor({
   const [content, setContent] = useState(note.content);
   const [isDragOver, setIsDragOver] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -101,14 +105,20 @@ export function NoteEditor({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const ta = e.currentTarget;
+    const mod = e.metaKey || e.ctrlKey;
+
+    // Ctrl+H: Find & Replace
+    if (mod && e.key === "h") {
+      e.preventDefault();
+      setShowFindReplace((v) => !v);
+      return;
+    }
 
     // Tab indent
     if (e.key === "Tab") {
       e.preventDefault();
       const { selectionStart: s, selectionEnd: end, value } = ta;
-
       if (e.shiftKey) {
-        // Shift+Tab: outdent
         const lineStart = value.lastIndexOf("\n", s - 1) + 1;
         if (value.startsWith("  ", lineStart)) {
           const newValue = value.slice(0, lineStart) + value.slice(lineStart + 2);
@@ -118,7 +128,6 @@ export function NoteEditor({
           });
         }
       } else {
-        // Tab: indent
         const newValue = value.slice(0, s) + "  " + value.slice(s);
         setContent(newValue);
         requestAnimationFrame(() => {
@@ -128,7 +137,7 @@ export function NoteEditor({
     }
 
     // Ctrl+B: bold
-    if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+    if (mod && e.key === "b") {
       e.preventDefault();
       const { selectionStart: s, selectionEnd: end, value } = ta;
       const selected = value.slice(s, end) || "太字テキスト";
@@ -140,7 +149,7 @@ export function NoteEditor({
     }
 
     // Ctrl+I: italic
-    if ((e.metaKey || e.ctrlKey) && e.key === "i") {
+    if (mod && e.key === "i") {
       e.preventDefault();
       const { selectionStart: s, selectionEnd: end, value } = ta;
       const selected = value.slice(s, end) || "斜体テキスト";
@@ -151,6 +160,22 @@ export function NoteEditor({
       });
     }
   };
+
+  const handleReplace = useCallback(
+    (find: string, replace: string, all: boolean) => {
+      if (!find) return;
+      if (all) {
+        setContent((c) => c.split(find).join(replace));
+      } else {
+        setContent((c) => {
+          const idx = c.indexOf(find);
+          if (idx === -1) return c;
+          return c.slice(0, idx) + replace + c.slice(idx + find.length);
+        });
+      }
+    },
+    []
+  );
 
   return (
     <main
@@ -179,6 +204,14 @@ export function NoteEditor({
             </span>
           )}
           <div className="toolbar-actions" role="toolbar" aria-label="エディタ操作">
+            <button
+              className={`btn-toolbar ${showFindReplace ? "active" : ""}`}
+              onClick={() => setShowFindReplace((v) => !v)}
+              title="検索＆置換 (Ctrl+H)"
+              aria-pressed={showFindReplace}
+            >
+              検索
+            </button>
             <button
               className={`btn-toolbar ${preview ? "active" : ""}`}
               onClick={onTogglePreview}
@@ -216,6 +249,15 @@ export function NoteEditor({
         </div>
       </header>
 
+      {/* Find & Replace */}
+      {showFindReplace && (
+        <FindReplace
+          content={content}
+          onReplace={handleReplace}
+          onClose={() => setShowFindReplace(false)}
+        />
+      )}
+
       {/* Tags */}
       <TagInput
         tags={note.tags}
@@ -234,7 +276,7 @@ export function NoteEditor({
       {/* Content */}
       {preview ? (
         <div className="markdown-preview" role="article" aria-label="Markdownプレビュー">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
             {content || "*まだ内容がありません*"}
           </ReactMarkdown>
         </div>
@@ -266,6 +308,7 @@ export function NoteEditor({
         <span>{stats.chars} 文字</span>
         <span>{stats.words} 単語</span>
         <span>{stats.lines} 行</span>
+        <span>約{stats.readingTime}分で読了</span>
       </footer>
 
       {/* Drop zone indicator */}

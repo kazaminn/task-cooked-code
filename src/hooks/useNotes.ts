@@ -103,6 +103,42 @@ export function useNotes() {
     persistNote(newNote);
   }, [persistNote]);
 
+  const addNoteFromTemplate = useCallback(
+    (title: string, content: string, tags: string[]) => {
+      const now = Date.now();
+      const newNote: Note = {
+        id: crypto.randomUUID(),
+        title,
+        content,
+        tags,
+        images: [],
+        pinned: false,
+        trashed: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setNotes((prev) => [newNote, ...prev]);
+      setSelectedId(newNote.id);
+      setViewMode("notes");
+      persistNote(newNote);
+    },
+    [persistNote]
+  );
+
+  const importNotes = useCallback(
+    (imported: Note[]) => {
+      setNotes((prev) => {
+        const existingIds = new Set(prev.map((n) => n.id));
+        const newNotes = imported.filter((n) => !existingIds.has(n.id));
+        for (const n of newNotes) persistNote(n);
+        return [...newNotes, ...prev];
+      });
+    },
+    [persistNote]
+  );
+
+  const getAllNotes = useCallback(() => notes, [notes]);
+
   const duplicateNote = useCallback(
     (id: string) => {
       const source = notes.find((n) => n.id === id);
@@ -247,6 +283,35 @@ export function useNotes() {
     [persistNote]
   );
 
+  const batchMoveToTrash = useCallback(
+    (ids: string[]) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (!ids.includes(n.id)) return n;
+          const updated = { ...n, trashed: true, pinned: false, updatedAt: Date.now() };
+          persistNote(updated);
+          return updated;
+        })
+      );
+      if (selectedId && ids.includes(selectedId)) setSelectedId(null);
+    },
+    [selectedId, persistNote]
+  );
+
+  const batchAddTag = useCallback(
+    (ids: string[], tag: string) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (!ids.includes(n.id) || n.tags.includes(tag)) return n;
+          const updated = { ...n, tags: [...n.tags, tag], updatedAt: Date.now() };
+          persistNote(updated);
+          return updated;
+        })
+      );
+    },
+    [persistNote]
+  );
+
   return {
     notes: filteredNotes,
     allTags,
@@ -272,6 +337,11 @@ export function useNotes() {
     emptyTrash,
     addImage,
     removeImage,
+    addNoteFromTemplate,
+    importNotes,
+    getAllNotes,
+    batchMoveToTrash,
+    batchAddTag,
     loading,
   };
 }
