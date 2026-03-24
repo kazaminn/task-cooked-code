@@ -3,6 +3,9 @@ import type { Note } from "../types/Note";
 interface NoteListProps {
   notes: Note[];
   selectedId: string | null;
+  allTags: string[];
+  filterTag: string | null;
+  onFilterTag: (tag: string | null) => void;
   onSelect: (id: string) => void;
   onAdd: () => void;
   onDelete: (id: string) => void;
@@ -20,6 +23,9 @@ function formatDate(timestamp: number): string {
 export function NoteList({
   notes,
   selectedId,
+  allTags,
+  filterTag,
+  onFilterTag,
   onSelect,
   onAdd,
   onDelete,
@@ -32,9 +38,32 @@ export function NoteList({
           +
         </button>
       </div>
+
+      {allTags.length > 0 && (
+        <div className="tag-filter">
+          <button
+            className={`tag-filter-btn ${filterTag === null ? "active" : ""}`}
+            onClick={() => onFilterTag(null)}
+          >
+            すべて
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              className={`tag-filter-btn ${filterTag === tag ? "active" : ""}`}
+              onClick={() => onFilterTag(filterTag === tag ? null : tag)}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="note-list-items">
         {notes.length === 0 && (
-          <p className="empty-message">ノートがありません</p>
+          <p className="empty-message">
+            {filterTag ? `「${filterTag}」タグのノートはありません` : "ノートがありません"}
+          </p>
         )}
         {notes.map((note) => (
           <div
@@ -43,9 +72,7 @@ export function NoteList({
             onClick={() => onSelect(note.id)}
           >
             <div className="note-item-header">
-              <span className="note-item-title">
-                {note.title || "無題"}
-              </span>
+              <span className="note-item-title">{note.title || "無題"}</span>
               <button
                 className="btn-delete"
                 onClick={(e) => {
@@ -57,9 +84,14 @@ export function NoteList({
                 ×
               </button>
             </div>
-            <span className="note-item-date">
-              {formatDate(note.updatedAt)}
-            </span>
+            {note.tags.length > 0 && (
+              <div className="note-item-tags">
+                {note.tags.map((tag) => (
+                  <span key={tag} className="note-item-tag">{tag}</span>
+                ))}
+              </div>
+            )}
+            <span className="note-item-date">{formatDate(note.updatedAt)}</span>
           </div>
         ))}
       </div>

@@ -4,6 +4,11 @@
   overflow: hidden;
 }
 
+.app.loading-state {
+  align-items: center;
+  justify-content: center;
+}
+
 /* Sidebar */
 .note-list {
   width: 280px;
@@ -45,6 +50,33 @@
 .btn-add:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* Tag filter */
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tag-filter-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-filter-btn:hover,
+.tag-filter-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .note-list-items {
@@ -117,6 +149,21 @@
   background: rgba(229, 62, 62, 0.1);
 }
 
+.note-item-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.note-item-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
 .note-item-date {
   font-size: 12px;
   color: var(--text);
@@ -130,13 +177,20 @@
   display: flex;
   flex-direction: column;
   padding: 24px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .note-editor.empty-state {
   align-items: center;
   justify-content: center;
   color: var(--text);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .note-editor-title {
@@ -148,8 +202,8 @@
   outline: none;
   background: transparent;
   padding: 0;
-  margin-bottom: 16px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .note-editor-title::placeholder {
@@ -157,10 +211,190 @@
   opacity: 0.5;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-toolbar {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-toolbar:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.btn-toolbar.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Tag input */
+.tag-input-container {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.tag-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 32px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.tag-remove {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.tag-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-h);
+  flex: 1;
+  min-width: 80px;
+  padding: 2px 0;
+}
+
+.tag-input::placeholder {
+  color: var(--text);
+  opacity: 0.5;
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 4px;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tag-suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.tag-suggestion:hover {
+  background: var(--accent-bg);
+}
+
+/* Markdown preview */
+.markdown-preview {
+  flex: 1;
+  overflow-y: auto;
+  line-height: 1.7;
+  color: var(--text-h);
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-preview code {
+  font-family: var(--mono);
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--code-bg, rgba(0,0,0,0.05));
+}
+
+.markdown-preview pre {
+  background: var(--code-bg, rgba(0,0,0,0.05));
+  padding: 12px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.markdown-preview pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-preview blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0.5em 0;
+  padding: 0.25em 1em;
+  color: var(--text);
+}
+
+.markdown-preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-preview th {
+  background: var(--accent-bg);
+}
+
+.markdown-preview a {
+  color: var(--accent);
+}
+
+.markdown-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Editor content */
 .note-editor-content {
   flex: 1;
-  font-family: var(--sans);
-  font-size: 16px;
+  font-family: var(--mono);
+  font-size: 14px;
   line-height: 1.6;
   color: var(--text-h);
   border: none;
@@ -169,9 +403,77 @@
   resize: none;
   padding: 0;
   width: 100%;
+  min-height: 200px;
 }
 
 .note-editor-content::placeholder {
   color: var(--text);
   opacity: 0.5;
+}
+
+/* Image gallery */
+.image-gallery {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.image-gallery-title {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+.image-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.image-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.image-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.image-item:hover .image-remove {
+  opacity: 1;
+}
+
+.image-name {
+  display: block;
+  font-size: 10px;
+  padding: 4px 6px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
