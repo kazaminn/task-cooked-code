@@ -2,9 +2,11 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { useNotes } from "./hooks/useNotes";
 import { useTheme } from "./hooks/useTheme";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { useToast } from "./hooks/useToast";
 import { NoteList } from "./components/NoteList";
 import { NoteEditor } from "./components/NoteEditor";
 import { ThemePanel } from "./components/ThemePanel";
+import { ToastContainer } from "./components/ToastContainer";
 import { exportAsMarkdown } from "./lib/export";
 import "./App.css";
 
@@ -25,6 +27,7 @@ function App() {
     selectedId,
     setSelectedId,
     addNote,
+    duplicateNote,
     updateNote,
     togglePin,
     moveToTrash,
@@ -37,9 +40,38 @@ function App() {
   } = useNotes();
 
   const { mode, setMode, colorHue, setColorHue } = useTheme();
+  const { toasts, addToast, removeToast } = useToast();
   const [themeOpen, setThemeOpen] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMoveToTrash = useCallback(
+    (id: string) => {
+      const note = notes.find((n) => n.id === id);
+      moveToTrash(id);
+      if (note) {
+        addToast(`「${note.title || "無題"}」をゴミ箱に移動しました`, {
+          label: "元に戻す",
+          onClick: () => restoreFromTrash(id),
+        });
+      }
+    },
+    [notes, moveToTrash, restoreFromTrash, addToast]
+  );
+
+  const handleDuplicate = useCallback(
+    (id: string) => {
+      duplicateNote(id);
+      addToast("ノートを複製しました");
+    },
+    [duplicateNote, addToast]
+  );
+
+  const handleEmptyTrash = useCallback(() => {
+    emptyTrash();
+    addToast("ゴミ箱を空にしました");
+  }, [emptyTrash, addToast]);
 
   const keyHandlers = useMemo(
     () => ({
@@ -53,6 +85,7 @@ function App() {
   useKeyboard(keyHandlers);
 
   const handleTogglePreview = useCallback(() => setPreview((p) => !p), []);
+  const handleToggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
 
   if (loading) {
     return (
@@ -74,6 +107,7 @@ function App() {
         sortMode={sortMode}
         viewMode={viewMode}
         trashCount={trashCount}
+        sidebarCollapsed={sidebarCollapsed}
         onFilterTag={setFilterTag}
         onSearchChange={setSearchQuery}
         onSortChange={setSortMode}
@@ -81,11 +115,13 @@ function App() {
         onSelect={setSelectedId}
         onAdd={addNote}
         onTogglePin={togglePin}
-        onMoveToTrash={moveToTrash}
+        onDuplicate={handleDuplicate}
+        onMoveToTrash={handleMoveToTrash}
         onRestore={restoreFromTrash}
         onPermanentDelete={permanentDelete}
-        onEmptyTrash={emptyTrash}
+        onEmptyTrash={handleEmptyTrash}
         onOpenTheme={() => setThemeOpen(true)}
+        onToggleSidebar={handleToggleSidebar}
         searchInputRef={searchInputRef}
       />
       {selectedNote ? (
@@ -121,6 +157,7 @@ function App() {
         onColorChange={setColorHue}
         onClose={() => setThemeOpen(false)}
       />
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 }

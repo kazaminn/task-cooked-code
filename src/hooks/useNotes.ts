@@ -103,6 +103,28 @@ export function useNotes() {
     persistNote(newNote);
   }, [persistNote]);
 
+  const duplicateNote = useCallback(
+    (id: string) => {
+      const source = notes.find((n) => n.id === id);
+      if (!source) return;
+      const now = Date.now();
+      const copy: Note = {
+        ...source,
+        id: crypto.randomUUID(),
+        title: `${source.title} (コピー)`,
+        pinned: false,
+        trashed: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setNotes((prev) => [copy, ...prev]);
+      setSelectedId(copy.id);
+      setViewMode("notes");
+      persistNote(copy);
+    },
+    [notes, persistNote]
+  );
+
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, "title" | "content" | "tags">>) => {
       setNotes((prev) =>
@@ -241,6 +263,7 @@ export function useNotes() {
     selectedId,
     setSelectedId,
     addNote,
+    duplicateNote,
     updateNote,
     togglePin,
     moveToTrash,

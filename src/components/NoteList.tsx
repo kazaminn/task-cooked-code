@@ -10,6 +10,7 @@ interface NoteListProps {
   sortMode: SortMode;
   viewMode: ViewMode;
   trashCount: number;
+  sidebarCollapsed: boolean;
   onFilterTag: (tag: string | null) => void;
   onSearchChange: (query: string) => void;
   onSortChange: (sort: SortMode) => void;
@@ -17,11 +18,13 @@ interface NoteListProps {
   onSelect: (id: string) => void;
   onAdd: () => void;
   onTogglePin: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onMoveToTrash: (id: string) => void;
   onRestore: (id: string) => void;
   onPermanentDelete: (id: string) => void;
   onEmptyTrash: () => void;
   onOpenTheme: () => void;
+  onToggleSidebar: () => void;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -32,6 +35,13 @@ function formatDate(timestamp: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getSnippet(content: string, maxLen = 60): string {
+  if (!content) return "";
+  const line = content.split("\n").find((l) => l.trim() !== "") || "";
+  const clean = line.replace(/[#*`~>\-[\]()!]/g, "").trim();
+  return clean.length > maxLen ? clean.slice(0, maxLen) + "…" : clean;
 }
 
 const sortLabels: Record<SortMode, string> = {
@@ -49,6 +59,7 @@ export function NoteList({
   sortMode,
   viewMode,
   trashCount,
+  sidebarCollapsed,
   onFilterTag,
   onSearchChange,
   onSortChange,
@@ -56,19 +67,58 @@ export function NoteList({
   onSelect,
   onAdd,
   onTogglePin,
+  onDuplicate,
   onMoveToTrash,
   onRestore,
   onPermanentDelete,
   onEmptyTrash,
   onOpenTheme,
+  onToggleSidebar,
   searchInputRef,
 }: NoteListProps) {
+  if (sidebarCollapsed) {
+    return (
+      <aside className="sidebar collapsed" role="complementary" aria-label="サイドバー（折りたたみ）">
+        <button
+          className="btn-icon sidebar-expand-btn"
+          onClick={onToggleSidebar}
+          title="サイドバーを開く"
+          aria-label="サイドバーを展開"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-90 8 8)"/>
+          </svg>
+        </button>
+        <button
+          className="btn-icon btn-accent sidebar-expand-btn"
+          onClick={onAdd}
+          title="新規ノート"
+          aria-label="新しいノートを作成"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="sidebar" role="complementary" aria-label="ノート一覧">
       {/* Header */}
       <div className="sidebar-header">
         <h2 className="sidebar-title">ノート</h2>
         <div className="sidebar-header-actions">
+          <button
+            className="btn-icon"
+            onClick={onToggleSidebar}
+            title="サイドバーを閉じる"
+            aria-label="サイドバーを折りたたむ"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(90 8 8)"/>
+            </svg>
+          </button>
           <button
             className="btn-icon"
             onClick={onOpenTheme}
@@ -220,6 +270,14 @@ export function NoteList({
                   <>
                     <button
                       className="btn-icon-sm"
+                      onClick={(e) => { e.stopPropagation(); onDuplicate(note.id); }}
+                      title="複製"
+                      aria-label="ノートを複製"
+                    >
+                      ⧉
+                    </button>
+                    <button
+                      className="btn-icon-sm"
                       onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
                       title={note.pinned ? "ピン解除" : "ピン留め"}
                       aria-label={note.pinned ? "ピンを外す" : "ピンで固定する"}
@@ -257,6 +315,9 @@ export function NoteList({
                 )}
               </div>
             </div>
+            {note.content && (
+              <p className="note-item-snippet">{getSnippet(note.content)}</p>
+            )}
             {note.tags.length > 0 && (
               <div className="note-item-tags">
                 {note.tags.map((tag) => (
