@@ -4,6 +4,8 @@ export interface Note {
   content: string;
   tags: string[];
   images: ImageAttachment[];
+  pinned: boolean;
+  trashed: boolean;
   createdAt: number;
   updatedAt: number;
 }

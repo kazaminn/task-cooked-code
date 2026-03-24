@@ -1,11 +1,35 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Note, ImageAttachment } from "../types/Note";
 import { loadNotes, saveNote, deleteNoteFromDB } from "../lib/storage";
+
+export type SortMode = "updated" | "created" | "title";
+export type ViewMode = "notes" | "trash";
+
+function sortNotes(notes: Note[], sort: SortMode): Note[] {
+  const sorted = [...notes];
+  switch (sort) {
+    case "updated":
+      sorted.sort((a, b) => b.updatedAt - a.updatedAt);
+      break;
+    case "created":
+      sorted.sort((a, b) => b.createdAt - a.createdAt);
+      break;
+    case "title":
+      sorted.sort((a, b) => a.title.localeCompare(b.title, "ja"));
+      break;
+  }
+  // Pinned notes always on top
+  sorted.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+  return sorted;
+}
 
 export function useNotes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("updated");
+  const [viewMode, setViewMode] = useState<ViewMode>("notes");
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
 
@@ -14,7 +38,12 @@ export function useNotes() {
     initialized.current = true;
     loadNotes()
       .then((loaded) => {
-        setNotes(loaded);
+        const migrated = loaded.map((n) => ({
+          ...n,
+          pinned: n.pinned ?? false,
+          trashed: n.trashed ?? false,
+        }));
+        setNotes(migrated);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -22,11 +51,38 @@ export function useNotes() {
 
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
 
-  const allTags = Array.from(new Set(notes.flatMap((n) => n.tags))).sort();
+  const allTags = useMemo(
+    () => Array.from(new Set(notes.filter((n) => !n.trashed).flatMap((n) => n.tags))).sort(),
+    [notes]
+  );
 
-  const filteredNotes = filterTag
-    ? notes.filter((n) => n.tags.includes(filterTag))
-    : notes;
+  const filteredNotes = useMemo(() => {
+    let result = notes.filter((n) =>
+      viewMode === "trash" ? n.trashed : !n.trashed
+    );
+
+    if (filterTag && viewMode === "notes") {
+      result = result.filter((n) => n.tags.includes(filterTag));
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          n.content.toLowerCase().includes(q) ||
+          n.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+
+    return sortNotes(result, sortMode);
+  }, [notes, filterTag, searchQuery, sortMode, viewMode]);
+
+  const trashCount = useMemo(() => notes.filter((n) => n.trashed).length, [notes]);
+
+  const persistNote = useCallback((updated: Note) => {
+    saveNote(updated);
+  }, []);
 
   const addNote = useCallback(() => {
     const now = Date.now();
@@ -36,13 +92,16 @@ export function useNotes() {
       content: "",
       tags: [],
       images: [],
+      pinned: false,
+      trashed: false,
       createdAt: now,
       updatedAt: now,
     };
     setNotes((prev) => [newNote, ...prev]);
     setSelectedId(newNote.id);
-    saveNote(newNote);
-  }, []);
+    setViewMode("notes");
+    persistNote(newNote);
+  }, [persistNote]);
 
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, "title" | "content" | "tags">>) => {
@@ -50,15 +109,58 @@ export function useNotes() {
         prev.map((n) => {
           if (n.id !== id) return n;
           const updated = { ...n, ...updates, updatedAt: Date.now() };
-          saveNote(updated);
+          persistNote(updated);
           return updated;
         })
       );
     },
-    []
+    [persistNote]
   );
 
-  const deleteNote = useCallback(
+  const togglePin = useCallback(
+    (id: string) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const updated = { ...n, pinned: !n.pinned, updatedAt: Date.now() };
+          persistNote(updated);
+          return updated;
+        })
+      );
+    },
+    [persistNote]
+  );
+
+  const moveToTrash = useCallback(
+    (id: string) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const updated = { ...n, trashed: true, pinned: false, updatedAt: Date.now() };
+          persistNote(updated);
+          return updated;
+        })
+      );
+      if (selectedId === id) setSelectedId(null);
+    },
+    [selectedId, persistNote]
+  );
+
+  const restoreFromTrash = useCallback(
+    (id: string) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const updated = { ...n, trashed: false, updatedAt: Date.now() };
+          persistNote(updated);
+          return updated;
+        })
+      );
+    },
+    [persistNote]
+  );
+
+  const permanentDelete = useCallback(
     (id: string) => {
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (selectedId === id) setSelectedId(null);
@@ -67,56 +169,84 @@ export function useNotes() {
     [selectedId]
   );
 
-  const addImage = useCallback((noteId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const attachment: ImageAttachment = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        dataUrl: reader.result as string,
+  const emptyTrash = useCallback(() => {
+    setNotes((prev) => {
+      const trashed = prev.filter((n) => n.trashed);
+      for (const n of trashed) {
+        deleteNoteFromDB(n.id);
+      }
+      return prev.filter((n) => !n.trashed);
+    });
+    setSelectedId(null);
+  }, []);
+
+  const addImage = useCallback(
+    (noteId: string, file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const attachment: ImageAttachment = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          dataUrl: reader.result as string,
+        };
+        setNotes((prev) =>
+          prev.map((n) => {
+            if (n.id !== noteId) return n;
+            const updated = {
+              ...n,
+              images: [...n.images, attachment],
+              updatedAt: Date.now(),
+            };
+            persistNote(updated);
+            return updated;
+          })
+        );
       };
+      reader.readAsDataURL(file);
+    },
+    [persistNote]
+  );
+
+  const removeImage = useCallback(
+    (noteId: string, imageId: string) => {
       setNotes((prev) =>
         prev.map((n) => {
           if (n.id !== noteId) return n;
           const updated = {
             ...n,
-            images: [...n.images, attachment],
+            images: n.images.filter((img) => img.id !== imageId),
             updatedAt: Date.now(),
           };
-          saveNote(updated);
+          persistNote(updated);
           return updated;
         })
       );
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  const removeImage = useCallback((noteId: string, imageId: string) => {
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const updated = {
-          ...n,
-          images: n.images.filter((img) => img.id !== imageId),
-          updatedAt: Date.now(),
-        };
-        saveNote(updated);
-        return updated;
-      })
-    );
-  }, []);
+    },
+    [persistNote]
+  );
 
   return {
     notes: filteredNotes,
     allTags,
     filterTag,
     setFilterTag,
+    searchQuery,
+    setSearchQuery,
+    sortMode,
+    setSortMode,
+    viewMode,
+    setViewMode,
+    trashCount,
     selectedNote,
     selectedId,
     setSelectedId,
     addNote,
     updateNote,
-    deleteNote,
+    togglePin,
+    moveToTrash,
+    restoreFromTrash,
+    permanentDelete,
+    emptyTrash,
     addImage,
     removeImage,
     loading,

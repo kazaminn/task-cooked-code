@@ -1,14 +1,28 @@
 import type { Note } from "../types/Note";
+import type { SortMode, ViewMode } from "../hooks/useNotes";
 
 interface NoteListProps {
   notes: Note[];
   selectedId: string | null;
   allTags: string[];
   filterTag: string | null;
+  searchQuery: string;
+  sortMode: SortMode;
+  viewMode: ViewMode;
+  trashCount: number;
   onFilterTag: (tag: string | null) => void;
+  onSearchChange: (query: string) => void;
+  onSortChange: (sort: SortMode) => void;
+  onViewChange: (view: ViewMode) => void;
   onSelect: (id: string) => void;
   onAdd: () => void;
-  onDelete: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onMoveToTrash: (id: string) => void;
+  onRestore: (id: string) => void;
+  onPermanentDelete: (id: string) => void;
+  onEmptyTrash: () => void;
+  onOpenTheme: () => void;
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 function formatDate(timestamp: number): string {
@@ -20,27 +34,129 @@ function formatDate(timestamp: number): string {
   });
 }
 
+const sortLabels: Record<SortMode, string> = {
+  updated: "更新順",
+  created: "作成順",
+  title: "タイトル順",
+};
+
 export function NoteList({
   notes,
   selectedId,
   allTags,
   filterTag,
+  searchQuery,
+  sortMode,
+  viewMode,
+  trashCount,
   onFilterTag,
+  onSearchChange,
+  onSortChange,
+  onViewChange,
   onSelect,
   onAdd,
-  onDelete,
+  onTogglePin,
+  onMoveToTrash,
+  onRestore,
+  onPermanentDelete,
+  onEmptyTrash,
+  onOpenTheme,
+  searchInputRef,
 }: NoteListProps) {
   return (
-    <aside className="note-list">
-      <div className="note-list-header">
-        <h2>ノート</h2>
-        <button className="btn-add" onClick={onAdd} title="新規作成">
-          +
-        </button>
+    <aside className="sidebar" role="complementary" aria-label="ノート一覧">
+      {/* Header */}
+      <div className="sidebar-header">
+        <h2 className="sidebar-title">ノート</h2>
+        <div className="sidebar-header-actions">
+          <button
+            className="btn-icon"
+            onClick={onOpenTheme}
+            title="テーマ設定"
+            aria-label="テーマ設定を開く"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <button
+            className="btn-icon btn-accent"
+            onClick={onAdd}
+            title="新規ノート (Ctrl+N)"
+            aria-label="新しいノートを作成"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {allTags.length > 0 && (
-        <div className="tag-filter">
+      {/* Search */}
+      <div className="sidebar-search">
+        <label htmlFor="note-search" className="sr-only">ノートを検索</label>
+        <svg className="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        <input
+          id="note-search"
+          ref={searchInputRef}
+          className="search-input"
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="検索... (Ctrl+K)"
+        />
+        {searchQuery && (
+          <button
+            className="search-clear"
+            onClick={() => onSearchChange("")}
+            aria-label="検索をクリア"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* View toggle & sort */}
+      <div className="sidebar-controls">
+        <div className="view-toggle" role="tablist" aria-label="表示切替">
+          <button
+            className={`view-tab ${viewMode === "notes" ? "active" : ""}`}
+            onClick={() => onViewChange("notes")}
+            role="tab"
+            aria-selected={viewMode === "notes"}
+          >
+            ノート
+          </button>
+          <button
+            className={`view-tab ${viewMode === "trash" ? "active" : ""}`}
+            onClick={() => onViewChange("trash")}
+            role="tab"
+            aria-selected={viewMode === "trash"}
+          >
+            ゴミ箱{trashCount > 0 && <span className="badge">{trashCount}</span>}
+          </button>
+        </div>
+        {viewMode === "notes" && (
+          <select
+            className="sort-select"
+            value={sortMode}
+            onChange={(e) => onSortChange(e.target.value as SortMode)}
+            aria-label="ソート順"
+          >
+            {(Object.entries(sortLabels) as [SortMode, string][]).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Tag filter */}
+      {viewMode === "notes" && allTags.length > 0 && (
+        <div className="tag-filter" role="group" aria-label="タグフィルター">
           <button
             className={`tag-filter-btn ${filterTag === null ? "active" : ""}`}
             onClick={() => onFilterTag(null)}
@@ -59,10 +175,26 @@ export function NoteList({
         </div>
       )}
 
-      <div className="note-list-items">
+      {/* Trash actions */}
+      {viewMode === "trash" && trashCount > 0 && (
+        <div className="trash-actions">
+          <button className="btn-danger-text" onClick={onEmptyTrash}>
+            ゴミ箱を空にする
+          </button>
+        </div>
+      )}
+
+      {/* Note list */}
+      <nav className="note-items" role="list" aria-label="ノート一覧">
         {notes.length === 0 && (
           <p className="empty-message">
-            {filterTag ? `「${filterTag}」タグのノートはありません` : "ノートがありません"}
+            {viewMode === "trash"
+              ? "ゴミ箱は空です"
+              : searchQuery
+                ? "見つかりませんでした"
+                : filterTag
+                  ? `「${filterTag}」タグのノートはありません`
+                  : "ノートがありません"}
           </p>
         )}
         {notes.map((note) => (
@@ -70,19 +202,60 @@ export function NoteList({
             key={note.id}
             className={`note-item ${note.id === selectedId ? "active" : ""}`}
             onClick={() => onSelect(note.id)}
+            role="listitem"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(note.id);
+              }
+            }}
+            aria-current={note.id === selectedId ? "true" : undefined}
           >
             <div className="note-item-header">
+              {note.pinned && <span className="pin-indicator" aria-label="ピン留め済み" title="ピン留め済み">&#x1F4CC;</span>}
               <span className="note-item-title">{note.title || "無題"}</span>
-              <button
-                className="btn-delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(note.id);
-                }}
-                title="削除"
-              >
-                ×
-              </button>
+              <div className="note-item-actions">
+                {viewMode === "notes" ? (
+                  <>
+                    <button
+                      className="btn-icon-sm"
+                      onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                      title={note.pinned ? "ピン解除" : "ピン留め"}
+                      aria-label={note.pinned ? "ピンを外す" : "ピンで固定する"}
+                    >
+                      {note.pinned ? "◉" : "○"}
+                    </button>
+                    <button
+                      className="btn-icon-sm btn-danger-icon"
+                      onClick={(e) => { e.stopPropagation(); onMoveToTrash(note.id); }}
+                      title="ゴミ箱に移動"
+                      aria-label="ゴミ箱に移動"
+                    >
+                      ×
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="btn-icon-sm"
+                      onClick={(e) => { e.stopPropagation(); onRestore(note.id); }}
+                      title="復元"
+                      aria-label="ノートを復元"
+                    >
+                      ↩
+                    </button>
+                    <button
+                      className="btn-icon-sm btn-danger-icon"
+                      onClick={(e) => { e.stopPropagation(); onPermanentDelete(note.id); }}
+                      title="完全に削除"
+                      aria-label="完全に削除"
+                    >
+                      ×
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             {note.tags.length > 0 && (
               <div className="note-item-tags">
@@ -94,6 +267,12 @@ export function NoteList({
             <span className="note-item-date">{formatDate(note.updatedAt)}</span>
           </div>
         ))}
+      </nav>
+
+      {/* Keyboard hint */}
+      <div className="sidebar-footer" aria-hidden="true">
+        <span className="kbd">Ctrl+N</span> 新規
+        <span className="kbd">Ctrl+K</span> 検索
       </div>
     </aside>
   );

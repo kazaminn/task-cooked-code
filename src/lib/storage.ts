@@ -28,6 +28,8 @@ export async function loadNotes(): Promise<Note[]> {
         ...n,
         tags: n.tags ?? [],
         images: n.images ?? [],
+        pinned: n.pinned ?? false,
+        trashed: n.trashed ?? false,
       }));
       for (const note of migrated) {
         await saveNote(note);
