@@ -10,20 +10,37 @@ function useDebouncedTaskBody(
   const [localBody, setLocalBody] = useState(task?.body ?? "");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const taskIdRef = useRef(task?.id);
+  const onUpdateRef = useRef(onUpdate);
+  const pendingRef = useRef<{ taskId: string; body: string } | null>(null);
+  onUpdateRef.current = onUpdate;
 
-  // Reset when task switches
+  const flush = () => {
+    clearTimeout(timerRef.current);
+    if (pendingRef.current) {
+      onUpdateRef.current(pendingRef.current.taskId, { body: pendingRef.current.body });
+      pendingRef.current = null;
+    }
+  };
+
+  // Flush & reset when task switches
   if (taskIdRef.current !== task?.id) {
+    flush();
     taskIdRef.current = task?.id;
     setLocalBody(task?.body ?? "");
   }
 
-  useEffect(() => () => { clearTimeout(timerRef.current); }, []);
+  // Flush on unmount
+  useEffect(() => () => { flush(); }, []);
 
   const handleChange = (value: string) => {
     setLocalBody(value);
     clearTimeout(timerRef.current);
+    const taskId = task?.id;
+    if (!taskId) return;
+    pendingRef.current = { taskId, body: value };
     timerRef.current = setTimeout(() => {
-      if (task) onUpdate(task.id, { body: value });
+      onUpdateRef.current(taskId, { body: value });
+      pendingRef.current = null;
     }, 400);
   };
 

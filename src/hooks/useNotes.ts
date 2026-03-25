@@ -236,7 +236,7 @@ export function useNotes() {
     setNotes((prev) => {
       const trashed = prev.filter((n) => n.trashed);
       for (const n of trashed) {
-        noteService.delete(n.id);
+        noteService.delete(n.id).catch((err) => console.error("Failed to delete note:", err));
       }
       return prev.filter((n) => !n.trashed);
     });
@@ -244,10 +244,10 @@ export function useNotes() {
   }, [noteService]);
 
   const addImage = useCallback(
-    (noteId: string, file: File): string | null => {
+    (noteId: string, file: File): { error: string } | null => {
       const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
       if (file.size > MAX_IMAGE_SIZE) {
-        return "画像サイズは5MB以下にしてください";
+        return { error: "画像サイズは5MB以下にしてください" };
       }
       const reader = new FileReader();
       reader.onload = () => {
