@@ -328,7 +328,7 @@ export function NoteEditor({
               <button
                 key={task.id}
                 className="cross-ref-item"
-                onClick={() => onNavigateToTask?.(note.id)}
+                onClick={() => onNavigateToTask?.(task.id)}
                 title={`Issue #${task.number} を開く`}
               >
                 <span className={`task-status-icon ${task.status}`}>

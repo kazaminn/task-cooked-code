@@ -55,18 +55,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         `> このノートは Issue #${task.number} から作成されました`,
       ].join("\n");
 
-      notes.addNoteFromTemplate(
+      const noteId = notes.addNoteFromTemplate(
         task.title,
         content,
         ["Issue"]
       );
-      setTimeout(() => {
-        const allNotes = notes.getAllNotes();
-        const latestNote = allNotes.find((n) => n.title === task.title && !n.trashed);
-        if (latestNote) {
-          tasks.updateTask(task.id, { linkedNoteId: latestNote.id });
-        }
-      }, 100);
+      tasks.updateTask(task.id, { linkedNoteId: noteId });
       toast.addToast(`ノートを作成し、Issue #${task.number} とリンクしました`);
     },
     [notes, tasks, toast]

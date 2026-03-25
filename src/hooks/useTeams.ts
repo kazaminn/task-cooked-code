@@ -61,7 +61,7 @@ export function useTeams() {
     };
     setTeams((prev) => [team, ...prev]);
     setSelectedTeamId(team.id);
-    teamService.saveTeam(team);
+    teamService.saveTeam(team).catch((err) => console.error("Failed to save team:", err));
 
     // Add creator as owner
     const membership: TeamMembership = {
@@ -71,7 +71,7 @@ export function useTeams() {
       role: "owner",
       joinedAt: now,
     };
-    teamService.addMember(membership);
+    teamService.addMember(membership).catch((err) => console.error("Failed to add member:", err));
     setMembers([membership]);
 
     return team;
@@ -83,7 +83,7 @@ export function useTeams() {
         prev.map((t) => {
           if (t.id !== id) return t;
           const updated = { ...t, ...updates, updatedAt: Date.now() };
-          teamService.saveTeam(updated);
+          teamService.saveTeam(updated).catch((err) => console.error("Failed to save team:", err));
           return updated;
         })
       );
@@ -98,7 +98,7 @@ export function useTeams() {
         setSelectedTeamId(null);
         setMembers([]);
       }
-      teamService.deleteTeam(id);
+      teamService.deleteTeam(id).catch((err) => console.error("Failed to delete team:", err));
     },
     [selectedTeamId, teamService]
   );
@@ -114,7 +114,7 @@ export function useTeams() {
         joinedAt: Date.now(),
       };
       setMembers((prev) => [...prev, membership]);
-      teamService.addMember(membership);
+      teamService.addMember(membership).catch((err) => console.error("Failed to add member:", err));
       return membership;
     },
     [selectedTeamId, teamService]
@@ -126,7 +126,7 @@ export function useTeams() {
         prev.map((m) => {
           if (m.id !== membershipId) return m;
           const updated = { ...m, role };
-          teamService.updateMember(updated);
+          teamService.updateMember(updated).catch((err) => console.error("Failed to update member:", err));
           return updated;
         })
       );
@@ -137,7 +137,7 @@ export function useTeams() {
   const removeMember = useCallback(
     (membershipId: string) => {
       setMembers((prev) => prev.filter((m) => m.id !== membershipId));
-      teamService.removeMember(membershipId);
+      teamService.removeMember(membershipId).catch((err) => console.error("Failed to remove member:", err));
     },
     [teamService]
   );

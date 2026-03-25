@@ -329,7 +329,10 @@ function App() {
               preview={preview}
               onTogglePreview={handleTogglePreview}
               onUpdate={n.updateNote}
-              onAddImage={n.addImage}
+              onAddImage={(noteId, file) => {
+                const err = n.addImage(noteId, file);
+                if (err) toast.addToast(err);
+              }}
               onRemoveImage={n.removeImage}
               onExport={exportAsMarkdown}
               linkedTasks={linkedTasksForSelectedNote}
