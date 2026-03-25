@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react";
-import { useAppContext } from "./context/AppContext";
+import { useAppContext } from "./context/useAppContext";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { NoteList } from "./components/NoteList";
 import { NoteEditor } from "./components/NoteEditor";
@@ -323,6 +323,7 @@ function App() {
           />
           {n.selectedNote ? (
             <NoteEditor
+              key={n.selectedNote.id}
               note={n.selectedNote}
               allTags={n.allTags}
               preview={preview}

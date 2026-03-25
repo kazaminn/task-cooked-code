@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Note, ImageAttachment } from "../types/Note";
-import { useServices } from "../services/ServiceProvider";
+import { useServices } from "../services/useServices";
 
 export type SortMode = "updated" | "created" | "title";
 export type ViewMode = "notes" | "trash";

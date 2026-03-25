@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Task, TaskLabel, TaskMilestone, TaskComment, TaskStatus, TaskPriority } from "../types/Task";
-import { useServices } from "../services/ServiceProvider";
+import { useServices } from "../services/useServices";
 
 export function useTasks() {
   const { tasks: taskService } = useServices();
@@ -30,13 +30,21 @@ export function useTasks() {
   }, [taskService]);
 
   // Load comments when selected task changes
+  const [commentsForTaskId, setCommentsForTaskId] = useState<string | null>(null);
   useEffect(() => {
-    if (!selectedTaskId) {
-      setComments([]);
-      return;
-    }
-    taskService.loadComments(selectedTaskId).then(setComments);
+    if (!selectedTaskId) return;
+    let stale = false;
+    taskService.loadComments(selectedTaskId).then((c) => {
+      if (!stale) {
+        setComments(c);
+        setCommentsForTaskId(selectedTaskId);
+      }
+    });
+    return () => { stale = true; };
   }, [selectedTaskId, taskService]);
+
+  // Return empty comments if they don't belong to the current selection
+  const activeComments = commentsForTaskId === selectedTaskId ? comments : [];
 
   const selectedTask = useMemo(
     () => tasks.find((t) => t.id === selectedTaskId) ?? null,
@@ -161,7 +169,7 @@ export function useTasks() {
     selectedTask,
     selectedTaskId,
     setSelectedTaskId,
-    comments,
+    comments: activeComments,
     filterLabel,
     setFilterLabel,
     filterStatus,

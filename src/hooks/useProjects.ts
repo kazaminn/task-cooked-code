@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Project } from "../types/Project";
-import { useServices } from "../services/ServiceProvider";
+import { useServices } from "../services/useServices";
 
 const PROJECT_COLORS = [
   "#0075ca", "#0e8a16", "#d73a4a", "#e4e669",

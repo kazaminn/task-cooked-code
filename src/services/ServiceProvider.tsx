@@ -1,8 +1,7 @@
-import { createContext, useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Services } from "./types";
+import { ServiceContext } from "./useServices";
 import { createLocalServices } from "./local";
-
-const ServiceContext = createContext<Services | null>(null);
 
 // デフォルトはローカル実装。将来APIに差し替える場合は
 // <ServiceProvider services={createApiServices()}> とするだけ
@@ -20,10 +19,4 @@ export function ServiceProvider({
       {children}
     </ServiceContext.Provider>
   );
-}
-
-export function useServices(): Services {
-  const ctx = useContext(ServiceContext);
-  if (!ctx) throw new Error("useServices must be used within ServiceProvider");
-  return ctx;
 }
