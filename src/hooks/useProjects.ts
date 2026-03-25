@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Project } from "../types/Project";
-import { loadProjects, saveProject, deleteProject as deleteProjectDB } from "../lib/projectStorage";
+import { useServices } from "../services/ServiceProvider";
 
 const PROJECT_COLORS = [
   "#0075ca", "#0e8a16", "#d73a4a", "#e4e669",
@@ -8,6 +8,7 @@ const PROJECT_COLORS = [
 ];
 
 export function useProjects() {
+  const { projects: projectService, auth } = useServices();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const initialized = useRef(false);
@@ -15,13 +16,14 @@ export function useProjects() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    loadProjects().then(setProjects);
-  }, []);
+    projectService.loadAll().then(setProjects);
+  }, [projectService]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
 
   const createProject = useCallback((name: string, tag: string, description = "") => {
     const now = Date.now();
+    const user = auth.getCurrentUser();
     const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
     const project: Project = {
       id: crypto.randomUUID(),
@@ -29,36 +31,38 @@ export function useProjects() {
       description,
       tag,
       color,
+      teamId: null,
+      createdBy: user.id,
       createdAt: now,
       updatedAt: now,
     };
     setProjects((prev) => [project, ...prev]);
     setSelectedProjectId(project.id);
-    saveProject(project);
+    projectService.save(project);
     return project;
-  }, [projects.length]);
+  }, [projects.length, projectService, auth]);
 
   const updateProject = useCallback(
-    (id: string, updates: Partial<Omit<Project, "id" | "createdAt">>) => {
+    (id: string, updates: Partial<Omit<Project, "id" | "createdAt" | "createdBy">>) => {
       setProjects((prev) =>
         prev.map((p) => {
           if (p.id !== id) return p;
           const updated = { ...p, ...updates, updatedAt: Date.now() };
-          saveProject(updated);
+          projectService.save(updated);
           return updated;
         })
       );
     },
-    []
+    [projectService]
   );
 
   const removeProject = useCallback(
     (id: string) => {
       setProjects((prev) => prev.filter((p) => p.id !== id));
       if (selectedProjectId === id) setSelectedProjectId(null);
-      deleteProjectDB(id);
+      projectService.delete(id);
     },
-    [selectedProjectId]
+    [selectedProjectId, projectService]
   );
 
   return {

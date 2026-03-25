@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Note, ImageAttachment } from "../types/Note";
-import { loadNotes, saveNote, deleteNoteFromDB } from "../lib/storage";
+import { useServices } from "../services/ServiceProvider";
 
 export type SortMode = "updated" | "created" | "title";
 export type ViewMode = "notes" | "trash";
@@ -24,6 +24,7 @@ function sortNotes(notes: Note[], sort: SortMode): Note[] {
 }
 
 export function useNotes() {
+  const { notes: noteService } = useServices();
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -36,7 +37,8 @@ export function useNotes() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    loadNotes()
+    noteService
+      .loadAll()
       .then((loaded) => {
         const migrated = loaded.map((n) => ({
           ...n,
@@ -47,7 +49,7 @@ export function useNotes() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [noteService]);
 
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
 
@@ -81,8 +83,8 @@ export function useNotes() {
   const trashCount = useMemo(() => notes.filter((n) => n.trashed).length, [notes]);
 
   const persistNote = useCallback((updated: Note) => {
-    saveNote(updated);
-  }, []);
+    noteService.save(updated);
+  }, [noteService]);
 
   const addNote = useCallback(() => {
     const now = Date.now();
@@ -222,21 +224,21 @@ export function useNotes() {
     (id: string) => {
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (selectedId === id) setSelectedId(null);
-      deleteNoteFromDB(id);
+      noteService.delete(id);
     },
-    [selectedId]
+    [selectedId, noteService]
   );
 
   const emptyTrash = useCallback(() => {
     setNotes((prev) => {
       const trashed = prev.filter((n) => n.trashed);
       for (const n of trashed) {
-        deleteNoteFromDB(n.id);
+        noteService.delete(n.id);
       }
       return prev.filter((n) => !n.trashed);
     });
     setSelectedId(null);
-  }, []);
+  }, [noteService]);
 
   const addImage = useCallback(
     (noteId: string, file: File) => {

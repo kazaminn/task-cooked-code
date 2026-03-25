@@ -2,7 +2,9 @@ import { useState, useMemo } from "react";
 import type { Project } from "../types/Project";
 import type { Note } from "../types/Note";
 import type { Task, TaskLabel } from "../types/Task";
+import type { Team, TeamMembership, TeamRole } from "../types/User";
 import { STATUS_LABELS, PRIORITY_COLORS } from "../types/Task";
+import { ROLE_LABELS } from "../types/User";
 
 interface ProjectViewProps {
   projects: Project[];
@@ -10,6 +12,10 @@ interface ProjectViewProps {
   notes: Note[];
   allTasks: Task[];
   labels: TaskLabel[];
+  teams: Team[];
+  members: TeamMembership[];
+  canManageMembers: boolean;
+  canEdit: boolean;
   onSelectProject: (id: string | null) => void;
   onCreateProject: (name: string, tag: string, description?: string) => void;
   onUpdateProject: (id: string, updates: Partial<Omit<Project, "id" | "createdAt">>) => void;
@@ -18,6 +24,12 @@ interface ProjectViewProps {
   onNavigateToTask: (taskId: string) => void;
   onLinkTaskToProject: (taskId: string, projectId: string) => void;
   onUnlinkTaskFromProject: (taskId: string) => void;
+  onAssignTeam: (projectId: string, teamId: string | null) => void;
+  onCreateTeam: (name: string, description?: string) => Team;
+  onAddMember: (userId: string, displayName: string, role?: TeamRole) => void;
+  onUpdateMemberRole: (membershipId: string, role: TeamRole) => void;
+  onRemoveMember: (membershipId: string) => void;
+  onSelectTeam: (teamId: string | null) => void;
 }
 
 export function ProjectView({
@@ -26,6 +38,10 @@ export function ProjectView({
   notes,
   allTasks,
   labels,
+  teams,
+  members,
+  canManageMembers,
+  canEdit,
   onSelectProject,
   onCreateProject,
   onUpdateProject,
@@ -34,6 +50,12 @@ export function ProjectView({
   onNavigateToTask,
   onLinkTaskToProject,
   onUnlinkTaskFromProject,
+  onAssignTeam,
+  onCreateTeam,
+  onAddMember,
+  onUpdateMemberRole,
+  onRemoveMember,
+  onSelectTeam,
 }: ProjectViewProps) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -44,6 +66,13 @@ export function ProjectView({
   const [editDesc, setEditDesc] = useState("");
   const [editTag, setEditTag] = useState("");
   const [linkingTask, setLinkingTask] = useState(false);
+  const [teamPanelOpen, setTeamPanelOpen] = useState(false);
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDesc, setNewTeamDesc] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<TeamRole>("viewer");
 
   const projectNotes = useMemo(() => {
     if (!selectedProject) return [];
@@ -61,6 +90,11 @@ export function ProjectView({
     if (!selectedProject) return [];
     return allTasks.filter((t) => !t.projectId);
   }, [allTasks, selectedProject]);
+
+  const assignedTeam = useMemo(() => {
+    if (!selectedProject?.teamId) return null;
+    return teams.find((t) => t.id === selectedProject.teamId) ?? null;
+  }, [selectedProject, teams]);
 
   const handleCreate = () => {
     if (!newName.trim() || !newTag.trim()) return;
@@ -89,7 +123,30 @@ export function ProjectView({
     setEditing(false);
   };
 
+  const handleCreateTeam = () => {
+    if (!newTeamName.trim()) return;
+    const team = onCreateTeam(newTeamName.trim(), newTeamDesc.trim());
+    if (selectedProject) {
+      onAssignTeam(selectedProject.id, team.id);
+    }
+    setNewTeamName("");
+    setNewTeamDesc("");
+    setCreatingTeam(false);
+  };
+
+  const handleAddMember = () => {
+    if (!newMemberName.trim()) return;
+    const id = crypto.randomUUID();
+    onAddMember(id, newMemberName.trim(), newMemberRole);
+    setNewMemberName("");
+    setNewMemberRole("viewer");
+    setAddingMember(false);
+  };
+
   const getLabel = (id: string) => labels.find((l) => l.id === id);
+
+  const roleClass = (role: TeamRole) =>
+    role === "owner" ? "role-owner" : role === "editor" ? "role-editor" : "role-viewer";
 
   return (
     <div className="project-view">
@@ -207,19 +264,34 @@ export function ProjectView({
                     <h1 className="project-title">{selectedProject.name}</h1>
                     <span className="project-header-tag">{selectedProject.tag}</span>
                     <div className="project-header-actions">
-                      <button className="project-btn" onClick={handleStartEdit}>
-                        編集
-                      </button>
+                      {canEdit && (
+                        <button className="project-btn" onClick={handleStartEdit}>
+                          編集
+                        </button>
+                      )}
                       <button
-                        className="project-btn project-btn-danger"
+                        className="project-btn"
                         onClick={() => {
-                          if (confirm(`「${selectedProject.name}」を削除しますか？`)) {
-                            onRemoveProject(selectedProject.id);
+                          setTeamPanelOpen(!teamPanelOpen);
+                          if (!teamPanelOpen && assignedTeam) {
+                            onSelectTeam(assignedTeam.id);
                           }
                         }}
                       >
-                        削除
+                        {assignedTeam ? assignedTeam.name : "チーム設定"}
                       </button>
+                      {canManageMembers && (
+                        <button
+                          className="project-btn project-btn-danger"
+                          onClick={() => {
+                            if (confirm(`「${selectedProject.name}」を削除しますか？`)) {
+                              onRemoveProject(selectedProject.id);
+                            }
+                          }}
+                        >
+                          削除
+                        </button>
+                      )}
                     </div>
                   </div>
                   {selectedProject.description && (
@@ -228,6 +300,160 @@ export function ProjectView({
                 </>
               )}
             </div>
+
+            {/* Team panel */}
+            {teamPanelOpen && (
+              <section className="project-section team-panel">
+                <h3 className="project-section-title">
+                  チーム
+                  {assignedTeam && (
+                    <span className="project-section-count">{members.length}人</span>
+                  )}
+                </h3>
+
+                {assignedTeam ? (
+                  <>
+                    {/* Members list */}
+                    <div className="team-members">
+                      {members.map((m) => (
+                        <div key={m.id} className="team-member">
+                          <div className="team-member-avatar">
+                            {m.userId.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="team-member-name">{m.userId}</span>
+                          <span className={`team-role-badge ${roleClass(m.role)}`}>
+                            {ROLE_LABELS[m.role]}
+                          </span>
+                          {canManageMembers && m.role !== "owner" && (
+                            <div className="team-member-actions">
+                              <select
+                                className="team-role-select"
+                                value={m.role}
+                                onChange={(e) =>
+                                  onUpdateMemberRole(m.id, e.target.value as TeamRole)
+                                }
+                              >
+                                <option value="viewer">参加者</option>
+                                <option value="editor">編集者</option>
+                                <option value="owner">オーナー</option>
+                              </select>
+                              <button
+                                className="project-btn project-btn-danger project-btn-sm"
+                                onClick={() => onRemoveMember(m.id)}
+                              >
+                                除外
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add member */}
+                    {canManageMembers && (
+                      <>
+                        {addingMember ? (
+                          <div className="team-add-form">
+                            <input
+                              className="project-input"
+                              placeholder="ユーザー名 or メールアドレス"
+                              value={newMemberName}
+                              onChange={(e) => setNewMemberName(e.target.value)}
+                              autoFocus
+                            />
+                            <select
+                              className="team-role-select"
+                              value={newMemberRole}
+                              onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
+                            >
+                              <option value="viewer">参加者</option>
+                              <option value="editor">編集者</option>
+                              <option value="owner">オーナー</option>
+                            </select>
+                            <button className="project-btn project-btn-primary" onClick={handleAddMember}>
+                              追加
+                            </button>
+                            <button className="project-btn" onClick={() => setAddingMember(false)}>
+                              キャンセル
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="project-btn project-btn-sm"
+                            onClick={() => setAddingMember(true)}
+                          >
+                            + メンバーを追加
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Unassign team */}
+                    {canManageMembers && (
+                      <button
+                        className="project-btn project-btn-sm team-unassign"
+                        onClick={() => onAssignTeam(selectedProject.id, null)}
+                      >
+                        チームを解除
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Assign existing team or create new */}
+                    {teams.length > 0 && (
+                      <div className="team-assign-list">
+                        <p className="project-section-empty">既存のチームを割り当て:</p>
+                        {teams.map((team) => (
+                          <button
+                            key={team.id}
+                            className="project-link-item"
+                            onClick={() => {
+                              onAssignTeam(selectedProject.id, team.id);
+                              onSelectTeam(team.id);
+                            }}
+                          >
+                            {team.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {creatingTeam ? (
+                      <div className="team-add-form">
+                        <input
+                          className="project-input"
+                          placeholder="チーム名"
+                          value={newTeamName}
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                          autoFocus
+                        />
+                        <input
+                          className="project-input"
+                          placeholder="説明（任意）"
+                          value={newTeamDesc}
+                          onChange={(e) => setNewTeamDesc(e.target.value)}
+                        />
+                        <div className="project-create-actions">
+                          <button className="project-btn project-btn-primary" onClick={handleCreateTeam}>
+                            作成
+                          </button>
+                          <button className="project-btn" onClick={() => setCreatingTeam(false)}>
+                            キャンセル
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="project-btn"
+                        onClick={() => setCreatingTeam(true)}
+                      >
+                        + 新規チームを作成
+                      </button>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
 
             {/* Notes section */}
             <section className="project-section">
@@ -268,12 +494,14 @@ export function ProjectView({
               <h3 className="project-section-title">
                 Issues
                 <span className="project-section-count">{projectTasks.length}</span>
-                <button
-                  className="project-btn project-btn-sm"
-                  onClick={() => setLinkingTask(!linkingTask)}
-                >
-                  {linkingTask ? "閉じる" : "+ Issueを追加"}
-                </button>
+                {canEdit && (
+                  <button
+                    className="project-btn project-btn-sm"
+                    onClick={() => setLinkingTask(!linkingTask)}
+                  >
+                    {linkingTask ? "閉じる" : "+ Issueを追加"}
+                  </button>
+                )}
               </h3>
 
               {linkingTask && availableTasks.length > 0 && (
@@ -337,13 +565,15 @@ export function ProjectView({
                           })}
                         </span>
                       </button>
-                      <button
-                        className="project-unlink-btn"
-                        onClick={() => onUnlinkTaskFromProject(task.id)}
-                        title="プロジェクトから外す"
-                      >
-                        &times;
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="project-unlink-btn"
+                          onClick={() => onUnlinkTaskFromProject(task.id)}
+                          title="プロジェクトから外す"
+                        >
+                          &times;
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
