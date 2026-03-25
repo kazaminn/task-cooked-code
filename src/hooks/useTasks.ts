@@ -86,6 +86,7 @@ export function useTasks() {
       milestone: null,
       assignee: "",
       linkedNoteId: null,
+      projectId: null,
       createdAt: now,
       updatedAt: now,
     };
