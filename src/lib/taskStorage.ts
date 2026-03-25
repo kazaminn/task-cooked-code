@@ -2,7 +2,7 @@ import type { Task, TaskLabel, TaskMilestone, TaskComment } from "../types/Task"
 import { DEFAULT_LABELS } from "../types/Task";
 
 const DB_NAME = "notes-app";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -23,6 +23,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains("taskComments")) {
         db.createObjectStore("taskComments", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("projects")) {
+        db.createObjectStore("projects", { keyPath: "id" });
       }
     };
     request.onsuccess = () => resolve(request.result);

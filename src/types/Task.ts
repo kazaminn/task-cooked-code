@@ -24,6 +24,7 @@ export interface Task {
   milestone: string | null; // milestone id
   assignee: string;
   linkedNoteId: string | null;
+  projectId: string | null;
   createdAt: number;
   updatedAt: number;
 }

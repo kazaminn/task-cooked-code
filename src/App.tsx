@@ -8,16 +8,17 @@ import { ToastContainer } from "./components/ToastContainer";
 import { TemplatePanel } from "./components/TemplatePanel";
 import { StatsPanel } from "./components/StatsPanel";
 import { TaskBoard } from "./components/TaskBoard";
+import { ProjectView } from "./components/ProjectView";
 import { exportAsMarkdown } from "./lib/export";
 import { exportAllAsJSON, importFromJSON, importFromMarkdown } from "./lib/backup";
 import type { NoteTemplate } from "./lib/templates";
 import "highlight.js/styles/github-dark.min.css";
 import "./App.css";
 
-type AppView = "notes" | "tasks";
+type AppView = "notes" | "tasks" | "projects";
 
 function App() {
-  const { notes: n, tasks: t, theme, toast, crossRef } = useAppContext();
+  const { notes: n, tasks: t, projects: p, theme, toast, crossRef } = useAppContext();
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -164,6 +165,43 @@ function App() {
   const handleTogglePreview = useCallback(() => setPreview((p) => !p), []);
   const handleToggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
 
+  // Project navigation handlers
+  const handleProjectNavigateToNote = useCallback(
+    (noteId: string) => {
+      setAppView("notes");
+      n.setSelectedId(noteId);
+    },
+    [n]
+  );
+
+  const handleProjectNavigateToTask = useCallback(
+    (taskId: string) => {
+      setAppView("tasks");
+      t.setSelectedTaskId(taskId);
+    },
+    [t]
+  );
+
+  const handleLinkTaskToProject = useCallback(
+    (taskId: string, projectId: string) => {
+      t.updateTask(taskId, { projectId });
+    },
+    [t]
+  );
+
+  const handleUnlinkTaskFromProject = useCallback(
+    (taskId: string) => {
+      t.updateTask(taskId, { projectId: null });
+    },
+    [t]
+  );
+
+  // All tasks (unfiltered) for project view
+  const allTasksForProjects = useMemo(() => {
+    const { open, in_progress, done, closed } = t.tasksByStatus;
+    return [...open, ...in_progress, ...done, ...closed];
+  }, [t.tasksByStatus]);
+
   // Compute linked tasks for selected note
   const linkedTasksForSelectedNote = useMemo(() => {
     if (!n.selectedNote) return [];
@@ -188,6 +226,9 @@ function App() {
         <button className={`app-nav-tab ${appView === "tasks" ? "active" : ""}`} onClick={() => setAppView("tasks")}>
           Issues
         </button>
+        <button className={`app-nav-tab ${appView === "projects" ? "active" : ""}`} onClick={() => setAppView("projects")}>
+          プロジェクト
+        </button>
         <div className="app-nav-spacer" />
         <button className="app-nav-btn" onClick={() => setTemplateOpen(true)} title="テンプレートから作成">テンプレート</button>
         <button className="app-nav-btn" onClick={() => setStatsOpen(true)} title="統計ダッシュボード">統計</button>
@@ -198,7 +239,23 @@ function App() {
         <input ref={mdImportRef} type="file" accept=".md,.markdown" multiple hidden onChange={handleImportMarkdown} />
       </nav>
 
-      {appView === "tasks" ? (
+      {appView === "projects" ? (
+        <ProjectView
+          projects={p.projects}
+          selectedProject={p.selectedProject}
+          notes={n.getAllNotes()}
+          allTasks={allTasksForProjects}
+          labels={t.labels}
+          onSelectProject={p.setSelectedProjectId}
+          onCreateProject={p.createProject}
+          onUpdateProject={p.updateProject}
+          onRemoveProject={p.removeProject}
+          onNavigateToNote={handleProjectNavigateToNote}
+          onNavigateToTask={handleProjectNavigateToTask}
+          onLinkTaskToProject={handleLinkTaskToProject}
+          onUnlinkTaskFromProject={handleUnlinkTaskFromProject}
+        />
+      ) : appView === "tasks" ? (
         <TaskBoard
           tasks={t.tasks}
           tasksByStatus={t.tasksByStatus}
