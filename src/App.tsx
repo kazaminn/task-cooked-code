@@ -330,8 +330,8 @@ function App() {
               onTogglePreview={handleTogglePreview}
               onUpdate={n.updateNote}
               onAddImage={(noteId, file) => {
-                const err = n.addImage(noteId, file);
-                if (err) toast.addToast(err);
+                const result = n.addImage(noteId, file);
+                if (result?.error) toast.addToast(result.error);
               }}
               onRemoveImage={n.removeImage}
               onExport={exportAsMarkdown}
