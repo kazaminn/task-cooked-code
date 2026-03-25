@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useNotes } from "../hooks/useNotes";
 import { useTasks } from "../hooks/useTasks";
 import { useProjects } from "../hooks/useProjects";
@@ -7,41 +7,8 @@ import { useTheme } from "../hooks/useTheme";
 import { useToast } from "../hooks/useToast";
 import type { Note } from "../types/Note";
 import type { Task } from "../types/Task";
-
-// Derive return types from hooks
-type NotesState = ReturnType<typeof useNotes>;
-type TasksState = ReturnType<typeof useTasks>;
-type ProjectsState = ReturnType<typeof useProjects>;
-type TeamsState = ReturnType<typeof useTeams>;
-type ThemeState = ReturnType<typeof useTheme>;
-type ToastState = ReturnType<typeof useToast>;
-
-interface CrossRefHelpers {
-  /** Link a note to a task */
-  linkNoteToTask: (noteId: string, taskId: string) => void;
-  /** Unlink a note from a task */
-  unlinkNoteFromTask: (taskId: string) => void;
-  /** Create a new issue from an existing note */
-  createIssueFromNote: (note: Note) => Task;
-  /** Create a new note from an existing issue */
-  createNoteFromIssue: (task: Task) => void;
-  /** Get the task linked to a note */
-  getLinkedTasks: (noteId: string) => Task[];
-  /** Get the note linked to a task */
-  getLinkedNote: (taskId: string) => Note | null;
-}
-
-interface AppContextValue {
-  notes: NotesState;
-  tasks: TasksState;
-  projects: ProjectsState;
-  teams: TeamsState;
-  theme: ThemeState;
-  toast: ToastState;
-  crossRef: CrossRefHelpers;
-}
-
-const AppContext = createContext<AppContextValue | null>(null);
+import { AppContext } from "./appContextValue";
+import type { CrossRefHelpers } from "./appContextValue";
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const notes = useNotes();
@@ -148,10 +115,4 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {children}
     </AppContext.Provider>
   );
-}
-
-export function useAppContext() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useAppContext must be used within AppProvider");
-  return ctx;
 }

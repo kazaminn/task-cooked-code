@@ -1,7 +1,7 @@
 import type { Note } from "../types/Note";
 import type { Task, TaskLabel, TaskMilestone, TaskComment } from "../types/Task";
 import type { Project } from "../types/Project";
-import type { User, Team, TeamMembership, TeamRole } from "../types/User";
+import type { User, Team, TeamMembership } from "../types/User";
 
 // ── Note Service ──
 

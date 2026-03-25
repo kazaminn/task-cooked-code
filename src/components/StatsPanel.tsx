@@ -7,9 +7,13 @@ interface StatsPanelProps {
   onClose: () => void;
 }
 
-export function StatsPanel({ open, notes, onClose }: StatsPanelProps) {
-  if (!open) return null;
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Module-level cutoff, recalculated each time module evaluates (app startup).
+// Precise enough for "recently updated" stats; avoids impure Date.now() in render.
+const recentCutoff = Date.now() - ONE_WEEK_MS;
+
+export function StatsPanel({ open, notes, onClose }: StatsPanelProps) {
   const stats = useMemo(() => {
     const active = notes.filter((n) => !n.trashed);
     const trashed = notes.filter((n) => n.trashed);
@@ -49,9 +53,9 @@ export function StatsPanel({ open, notes, onClose }: StatsPanelProps) {
       ? active.reduce((a, b) => (a.content.length > b.content.length ? a : b))
       : null;
 
-    // Most recently updated
+    // Most recently updated (within last 7 days)
     const recentCount = active.filter(
-      (n) => Date.now() - n.updatedAt < 7 * 24 * 60 * 60 * 1000
+      (n) => n.updatedAt > recentCutoff
     ).length;
 
     return {
@@ -69,6 +73,8 @@ export function StatsPanel({ open, notes, onClose }: StatsPanelProps) {
       recentCount,
     };
   }, [notes]);
+
+  if (!open) return null;
 
   return (
     <div className="theme-panel-overlay" onClick={onClose} role="dialog" aria-label="統計" aria-modal="true">

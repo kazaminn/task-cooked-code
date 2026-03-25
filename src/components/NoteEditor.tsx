@@ -47,6 +47,7 @@ export function NoteEditor({
   onCreateIssue,
   onNavigateToTask,
 }: NoteEditorProps) {
+  // Parent must render <NoteEditor key={note.id} .../> to reset state on note switch
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -55,30 +56,26 @@ export function NoteEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    setTitle(note.title);
-    setContent(note.content);
-    setSaveStatus("idle");
-  }, [note.id, note.title, note.content]);
+  const hasPendingChanges = title !== note.title || content !== note.content;
 
   useEffect(() => {
-    if (title === note.title && content === note.content) return;
+    if (!hasPendingChanges) return;
 
-    setSaveStatus("saving");
     const timer = setTimeout(() => {
       onUpdate(note.id, { title, content });
       setSaveStatus("saved");
-      const resetTimer = setTimeout(() => setSaveStatus("idle"), 1500);
-      return () => clearTimeout(resetTimer);
+      setTimeout(() => setSaveStatus("idle"), 1500);
     }, 300);
     return () => clearTimeout(timer);
-  }, [title, content, note.id, note.title, note.content, onUpdate]);
+  }, [title, content, note.id, hasPendingChanges, onUpdate]);
+
+  const displayStatus: SaveStatus = hasPendingChanges ? "saving" : saveStatus;
 
   const stats = useMemo(() => countStats(content), [content]);
 
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
-  }, []);
+  }, [setContent]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -182,7 +179,7 @@ export function NoteEditor({
         });
       }
     },
-    []
+    [setContent]
   );
 
   return (
@@ -206,9 +203,9 @@ export function NoteEditor({
           placeholder="タイトル"
         />
         <div className="toolbar-right">
-          {saveStatus !== "idle" && (
-            <span className={`save-indicator ${saveStatus}`} aria-live="polite">
-              {saveStatus === "saving" ? "保存中..." : "保存済み ✓"}
+          {displayStatus !== "idle" && (
+            <span className={`save-indicator ${displayStatus}`} aria-live="polite">
+              {displayStatus === "saving" ? "保存中..." : "保存済み ✓"}
             </span>
           )}
           <div className="toolbar-actions" role="toolbar" aria-label="エディタ操作">
