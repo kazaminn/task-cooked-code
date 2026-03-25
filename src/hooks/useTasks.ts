@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Task, TaskLabel, TaskMilestone, TaskComment, TaskStatus, TaskPriority } from "../types/Task";
-import {
-  loadTasks, saveTask, deleteTask as deleteTaskDB,
-  loadLabels, saveLabel,
-  loadMilestones, saveMilestone,
-  loadComments, saveComment,
-} from "../lib/taskStorage";
+import { useServices } from "../services/ServiceProvider";
 
 export function useTasks() {
+  const { tasks: taskService } = useServices();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [labels, setLabels] = useState<TaskLabel[]>([]);
   const [milestones, setMilestones] = useState<TaskMilestone[]>([]);
@@ -19,17 +15,19 @@ export function useTasks() {
   const nextNumber = useRef(1);
 
   useEffect(() => {
-    Promise.all([loadTasks(), loadLabels(), loadMilestones()]).then(
-      ([t, l, m]) => {
-        setTasks(t);
-        setLabels(l);
-        setMilestones(m);
-        if (t.length > 0) {
-          nextNumber.current = Math.max(...t.map((x) => x.number)) + 1;
-        }
+    Promise.all([
+      taskService.loadTasks(),
+      taskService.loadLabels(),
+      taskService.loadMilestones(),
+    ]).then(([t, l, m]) => {
+      setTasks(t);
+      setLabels(l);
+      setMilestones(m);
+      if (t.length > 0) {
+        nextNumber.current = Math.max(...t.map((x) => x.number)) + 1;
       }
-    );
-  }, []);
+    });
+  }, [taskService]);
 
   // Load comments when selected task changes
   useEffect(() => {
@@ -37,8 +35,8 @@ export function useTasks() {
       setComments([]);
       return;
     }
-    loadComments(selectedTaskId).then(setComments);
-  }, [selectedTaskId]);
+    taskService.loadComments(selectedTaskId).then(setComments);
+  }, [selectedTaskId, taskService]);
 
   const selectedTask = useMemo(
     () => tasks.find((t) => t.id === selectedTaskId) ?? null,
@@ -92,9 +90,9 @@ export function useTasks() {
     };
     setTasks((prev) => [task, ...prev]);
     setSelectedTaskId(task.id);
-    saveTask(task);
+    taskService.saveTask(task);
     return task;
-  }, []);
+  }, [taskService]);
 
   const updateTask = useCallback(
     (id: string, updates: Partial<Omit<Task, "id" | "number" | "createdAt">>) => {
@@ -102,21 +100,21 @@ export function useTasks() {
         prev.map((t) => {
           if (t.id !== id) return t;
           const updated = { ...t, ...updates, updatedAt: Date.now() };
-          saveTask(updated);
+          taskService.saveTask(updated);
           return updated;
         })
       );
     },
-    []
+    [taskService]
   );
 
   const removeTask = useCallback(
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (selectedTaskId === id) setSelectedTaskId(null);
-      deleteTaskDB(id);
+      taskService.deleteTask(id);
     },
-    [selectedTaskId]
+    [selectedTaskId, taskService]
   );
 
   const moveTask = useCallback(
@@ -135,25 +133,25 @@ export function useTasks() {
         createdAt: Date.now(),
       };
       setComments((prev) => [...prev, comment]);
-      saveComment(comment);
+      taskService.saveComment(comment);
       updateTask(taskId, {});
     },
-    [updateTask]
+    [updateTask, taskService]
   );
 
   const addLabel = useCallback((name: string, color: string) => {
     const label: TaskLabel = { id: crypto.randomUUID(), name, color };
     setLabels((prev) => [...prev, label]);
-    saveLabel(label);
+    taskService.saveLabel(label);
     return label;
-  }, []);
+  }, [taskService]);
 
   const addMilestone = useCallback((title: string, dueDate: number | null) => {
     const ms: TaskMilestone = { id: crypto.randomUUID(), title, dueDate };
     setMilestones((prev) => [...prev, ms]);
-    saveMilestone(ms);
+    taskService.saveMilestone(ms);
     return ms;
-  }, []);
+  }, [taskService]);
 
   return {
     tasks: filteredTasks,

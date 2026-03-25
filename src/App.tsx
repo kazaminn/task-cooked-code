@@ -18,7 +18,7 @@ import "./App.css";
 type AppView = "notes" | "tasks" | "projects";
 
 function App() {
-  const { notes: n, tasks: t, projects: p, theme, toast, crossRef } = useAppContext();
+  const { notes: n, tasks: t, projects: p, teams: tm, theme, toast, crossRef } = useAppContext();
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -246,6 +246,10 @@ function App() {
           notes={n.getAllNotes()}
           allTasks={allTasksForProjects}
           labels={t.labels}
+          teams={tm.teams}
+          members={tm.members}
+          canManageMembers={tm.canManageMembers}
+          canEdit={tm.canEdit}
           onSelectProject={p.setSelectedProjectId}
           onCreateProject={p.createProject}
           onUpdateProject={p.updateProject}
@@ -254,6 +258,12 @@ function App() {
           onNavigateToTask={handleProjectNavigateToTask}
           onLinkTaskToProject={handleLinkTaskToProject}
           onUnlinkTaskFromProject={handleUnlinkTaskFromProject}
+          onAssignTeam={(projectId, teamId) => p.updateProject(projectId, { teamId })}
+          onCreateTeam={tm.createTeam}
+          onAddMember={tm.addMember}
+          onUpdateMemberRole={tm.updateMemberRole}
+          onRemoveMember={tm.removeMember}
+          onSelectTeam={tm.setSelectedTeamId}
         />
       ) : appView === "tasks" ? (
         <TaskBoard

@@ -5,6 +5,8 @@ export interface Project {
   /** ノートをこのタグでフィルタリング */
   tag: string;
   color: string; // hex color
+  teamId: string | null;
+  createdBy: string; // userId
   createdAt: number;
   updatedAt: number;
 }

@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, type ReactNode } from "react";
 import { useNotes } from "../hooks/useNotes";
 import { useTasks } from "../hooks/useTasks";
 import { useProjects } from "../hooks/useProjects";
+import { useTeams } from "../hooks/useTeams";
 import { useTheme } from "../hooks/useTheme";
 import { useToast } from "../hooks/useToast";
 import type { Note } from "../types/Note";
@@ -11,6 +12,7 @@ import type { Task } from "../types/Task";
 type NotesState = ReturnType<typeof useNotes>;
 type TasksState = ReturnType<typeof useTasks>;
 type ProjectsState = ReturnType<typeof useProjects>;
+type TeamsState = ReturnType<typeof useTeams>;
 type ThemeState = ReturnType<typeof useTheme>;
 type ToastState = ReturnType<typeof useToast>;
 
@@ -33,6 +35,7 @@ interface AppContextValue {
   notes: NotesState;
   tasks: TasksState;
   projects: ProjectsState;
+  teams: TeamsState;
   theme: ThemeState;
   toast: ToastState;
   crossRef: CrossRefHelpers;
@@ -44,6 +47,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const notes = useNotes();
   const tasks = useTasks();
   const projects = useProjects();
+  const teams = useTeams();
   const theme = useTheme();
   const toast = useToast();
 
@@ -89,8 +93,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         content,
         ["Issue"]
       );
-      // Link the newly created note (most recently added = first in state)
-      // We need to use a timeout to wait for state update
       setTimeout(() => {
         const allNotes = notes.getAllNotes();
         const latestNote = allNotes.find((n) => n.title === task.title && !n.trashed);
@@ -105,7 +107,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getLinkedTasks = useCallback(
     (noteId: string): Task[] => {
-      // tasks.tasks is the filtered list, need raw from tasksByStatus
       const allTasks = [
         ...tasks.tasksByStatus.open,
         ...tasks.tasksByStatus.in_progress,
@@ -143,7 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ notes, tasks, projects, theme, toast, crossRef }}>
+    <AppContext.Provider value={{ notes, tasks, projects, teams, theme, toast, crossRef }}>
       {children}
     </AppContext.Provider>
   );
