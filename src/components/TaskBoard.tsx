@@ -1,7 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Task, TaskLabel, TaskMilestone, TaskComment, TaskStatus, TaskPriority } from "../types/Task";
 import type { Note } from "../types/Note";
 import { DEFAULT_COLUMNS, STATUS_LABELS, PRIORITY_COLORS } from "../types/Task";
+
+function useDebouncedTaskBody(
+  task: Task | null,
+  onUpdate: (id: string, updates: Partial<Task>) => void
+) {
+  const [localBody, setLocalBody] = useState(task?.body ?? "");
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const taskIdRef = useRef(task?.id);
+
+  // Reset when task switches
+  if (taskIdRef.current !== task?.id) {
+    taskIdRef.current = task?.id;
+    setLocalBody(task?.body ?? "");
+  }
+
+  useEffect(() => () => { clearTimeout(timerRef.current); }, []);
+
+  const handleChange = (value: string) => {
+    setLocalBody(value);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (task) onUpdate(task.id, { body: value });
+    }, 400);
+  };
+
+  return [localBody, handleChange] as const;
+}
 
 type BoardView = "list" | "board";
 
@@ -84,6 +111,7 @@ export function TaskBoard({
   const [view, setView] = useState<BoardView>("list");
   const [newTitle, setNewTitle] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [taskBody, setTaskBody] = useDebouncedTaskBody(selectedTask, onUpdateTask);
   const [showNewLabel, setShowNewLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#0075ca");
@@ -126,8 +154,8 @@ export function TaskBoard({
             {/* Editable body */}
             <textarea
               className="task-detail-body"
-              value={selectedTask.body}
-              onChange={(e) => onUpdateTask(selectedTask.id, { body: e.target.value })}
+              value={taskBody}
+              onChange={(e) => setTaskBody(e.target.value)}
               placeholder="説明を追加... (Markdown対応)"
             />
 

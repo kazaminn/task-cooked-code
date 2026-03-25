@@ -38,7 +38,7 @@ export function useProjects() {
     };
     setProjects((prev) => [project, ...prev]);
     setSelectedProjectId(project.id);
-    projectService.save(project);
+    projectService.save(project).catch((err) => console.error("Failed to save project:", err));
     return project;
   }, [projects.length, projectService, auth]);
 
@@ -48,7 +48,7 @@ export function useProjects() {
         prev.map((p) => {
           if (p.id !== id) return p;
           const updated = { ...p, ...updates, updatedAt: Date.now() };
-          projectService.save(updated);
+          projectService.save(updated).catch((err) => console.error("Failed to save project:", err));
           return updated;
         })
       );
@@ -60,7 +60,7 @@ export function useProjects() {
     (id: string) => {
       setProjects((prev) => prev.filter((p) => p.id !== id));
       if (selectedProjectId === id) setSelectedProjectId(null);
-      projectService.delete(id);
+      projectService.delete(id).catch((err) => console.error("Failed to delete project:", err));
     },
     [selectedProjectId, projectService]
   );

@@ -83,7 +83,9 @@ export function useNotes() {
   const trashCount = useMemo(() => notes.filter((n) => n.trashed).length, [notes]);
 
   const persistNote = useCallback((updated: Note) => {
-    noteService.save(updated);
+    noteService.save(updated).catch((err) => {
+      console.error("Failed to save note:", err);
+    });
   }, [noteService]);
 
   const addNote = useCallback(() => {
@@ -123,6 +125,7 @@ export function useNotes() {
       setSelectedId(newNote.id);
       setViewMode("notes");
       persistNote(newNote);
+      return newNote.id;
     },
     [persistNote]
   );
@@ -224,7 +227,7 @@ export function useNotes() {
     (id: string) => {
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (selectedId === id) setSelectedId(null);
-      noteService.delete(id);
+      noteService.delete(id).catch((err) => console.error("Failed to delete note:", err));
     },
     [selectedId, noteService]
   );
@@ -241,7 +244,11 @@ export function useNotes() {
   }, [noteService]);
 
   const addImage = useCallback(
-    (noteId: string, file: File) => {
+    (noteId: string, file: File): string | null => {
+      const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+      if (file.size > MAX_IMAGE_SIZE) {
+        return "画像サイズは5MB以下にしてください";
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const attachment: ImageAttachment = {
@@ -263,6 +270,7 @@ export function useNotes() {
         );
       };
       reader.readAsDataURL(file);
+      return null;
     },
     [persistNote]
   );

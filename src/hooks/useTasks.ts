@@ -98,7 +98,7 @@ export function useTasks() {
     };
     setTasks((prev) => [task, ...prev]);
     setSelectedTaskId(task.id);
-    taskService.saveTask(task);
+    taskService.saveTask(task).catch((err) => console.error("Failed to save task:", err));
     return task;
   }, [taskService]);
 
@@ -108,7 +108,7 @@ export function useTasks() {
         prev.map((t) => {
           if (t.id !== id) return t;
           const updated = { ...t, ...updates, updatedAt: Date.now() };
-          taskService.saveTask(updated);
+          taskService.saveTask(updated).catch((err) => console.error("Failed to save task:", err));
           return updated;
         })
       );
@@ -120,7 +120,7 @@ export function useTasks() {
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (selectedTaskId === id) setSelectedTaskId(null);
-      taskService.deleteTask(id);
+      taskService.deleteTask(id).catch((err) => console.error("Failed to delete task:", err));
     },
     [selectedTaskId, taskService]
   );
@@ -141,7 +141,7 @@ export function useTasks() {
         createdAt: Date.now(),
       };
       setComments((prev) => [...prev, comment]);
-      taskService.saveComment(comment);
+      taskService.saveComment(comment).catch((err) => console.error("Failed to save comment:", err));
       updateTask(taskId, {});
     },
     [updateTask, taskService]
@@ -150,14 +150,14 @@ export function useTasks() {
   const addLabel = useCallback((name: string, color: string) => {
     const label: TaskLabel = { id: crypto.randomUUID(), name, color };
     setLabels((prev) => [...prev, label]);
-    taskService.saveLabel(label);
+    taskService.saveLabel(label).catch((err) => console.error("Failed to save label:", err));
     return label;
   }, [taskService]);
 
   const addMilestone = useCallback((title: string, dueDate: number | null) => {
     const ms: TaskMilestone = { id: crypto.randomUUID(), title, dueDate };
     setMilestones((prev) => [...prev, ms]);
-    taskService.saveMilestone(ms);
+    taskService.saveMilestone(ms).catch((err) => console.error("Failed to save milestone:", err));
     return ms;
   }, [taskService]);
 
